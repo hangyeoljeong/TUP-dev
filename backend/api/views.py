@@ -75,7 +75,7 @@ class UserProfileUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        user = request.user.userprofile
+        user = request.user
         
         # UserProfile이 없으면 생성
         profile, created = UserProfile.objects.get_or_create(user=user)

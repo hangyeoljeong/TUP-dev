@@ -154,7 +154,7 @@ def submit_feedback(request):
             Team.objects.filter(id=team_id).delete()
             return Response({"message": f"모두 비동의로 팀 해체. 비동의 {len(disagree_ids)}명 대기열 복귀 완료."}, status=200)
 
-        # 3) 리더가 나갔으면 새 리더 선임(남은 팀원 중 user_id가 가장 작은 사람)
+        # 3) 리더가 나갔으면 새 리더 선임(남은 팀원 중 user_id가 가장 작은 사람) -> db 무결성 때문에 하나 무조건 정해야댐
         if removed_leader:
             new_leader_id = remaining[0].user_id
             Team.objects.filter(id=team_id).update(leader_id=new_leader_id)

@@ -1,28 +1,23 @@
 """
 URL configuration for backend project.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+The `urlpatterns` list routes URLs to views.
 """
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+# JWT를 쓸 거면 아래 두 줄 주석 해제 + simplejwt 설치
+# from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # 토큰 발급
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # 토큰 갱신
+
+    # TM1 (자동매칭) — 별도 앱
     path('api/tm1/', include('TeamMatching1.urls')),
-    path('api/tm2/', include('TeamMatching2.urls')),
+
+    # TM2 (초대/지원) — api 서브라우터에서 관리 (api/urls.py -> api/tm2/urls.py)
     path('api/', include('api.urls')),
+
+    # JWT 엔드포인트 (선택)
+    # path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

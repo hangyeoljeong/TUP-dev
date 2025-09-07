@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from .views import (
     TeamListView, TeamCreateView, TeamDetailView, TeamApplyView, InviteUserView,
     AcceptInviteView, RejectInviteView, MyInvitesView,
@@ -9,6 +9,7 @@ from .views import UserProfileUpdateView
 
 
 urlpatterns = [
+    path('tm2/', include('api.tm2.urls')),
     # 팀
     path('teams/', TeamListView.as_view(), name='team-list'),  
     path('teams/create/', TeamCreateView.as_view(), name='team-create'),  

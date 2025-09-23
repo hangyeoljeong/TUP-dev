@@ -1,6 +1,7 @@
 import React from 'react';
 import Modal from '@mui/material/Modal';
 import PersonIcon from '@mui/icons-material/Person';
+import { performFeedbackAction } from "../api/teamup1"; // api 래퍼
 
 const FeedbackModal = ({
   open,
@@ -9,8 +10,9 @@ const FeedbackModal = ({
   feedbacks,
   currentUser,
   scrollToBoth,
-  onRematch,       // ✅ 추가
-  onRequeue        // ✅ 추가
+  teamId
+  // onRematch,       // 재매칭 : 상태 초기화, 새로고침 역할로 놔두기
+  // onRequeue        // 대기열 재입장 : 상태 초기화, 마찬가지로 새로고침 역할
 }) => {
   const isAllResponded = team.every(member => feedbacks[member.id]);
   const numPending = team.filter(member => !feedbacks[member.id]).length;
@@ -100,17 +102,36 @@ const FeedbackModal = ({
                       </p>
                       <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
                         <button style={primaryButtonStyle}
-                          onClick={() => {
-                            // ❗ 나중에 axios.post('/api/teamup/feedback', { action: 'rematch' })
-                            onRematch(); // 현재는 빈 함수 or 프론트 로직 제거 상태
-                          }}>
+                          onClick={async () => {
+                            try {
+                              await performFeedbackAction({
+                                teamId,
+                                userId: currentUser?.id,
+                                action: "rematch",
+                              });
+                              onClose();
+                            } catch (err) {
+                              console.error("재매칭 실패", err);
+                            }
+                          }}
+                        >
                           재매칭 시도하기
                         </button>
+
                         <button style={primaryButtonStyle}
-                          onClick={() => {
-                            // ❗ 나중에 axios.post('/api/teamup/feedback', { action: 'requeue' })
-                            onRequeue(); // 현재는 빈 함수 or 프론트 로직 제거 상태
-                          }}>
+                          onClick={async () => {
+                            try {
+                              await performFeedbackAction({
+                                teamId,
+                                userId: currentUser?.id,
+                                action: "requeue",
+                              });
+                              onClose();
+                            } catch (err) {
+                              console.error("대기열 이동 실패", err);
+                            }
+                          }}
+                        >
                           대기열 이동하기
                         </button>
                       </div>

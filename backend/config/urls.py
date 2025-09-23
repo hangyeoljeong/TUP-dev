@@ -12,7 +12,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # TM1 (자동매칭) — 별도 앱
-    path('api/tm1/', include('TeamMatching1.urls')),
+    path('api/', include('TeamMatching1.urls')),
 
     # TM2 (초대/지원) — api 서브라우터에서 관리 (api/urls.py -> api/tm2/urls.py)
     path('api/', include('api.urls')),

@@ -107,7 +107,7 @@ STATIC_URL = 'static/'
 # DRF 기본 설정
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+        "rest_framework.permissions.AllowAny",
     ],
     # 세션 인증을 쓸 경우 기본값으로 동작함.
     # JWT를 쓰면 아래 주석을 해제하고 simplejwt 설치/설정:

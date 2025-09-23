@@ -1,12 +1,19 @@
+
 # backend/TeamMatching1/views.py
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import transaction
-from dbapp.models import WaitingUser, Team, TeamMember, Feedback
+from dbapp.models import WaitingUser, Team, TeamMember, Feedback, User
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import json
+
+
 
 # 팀 정원(기존 TM1 로직 기준 4명)
 TEAM_SIZE = 4
 
+@csrf_exempt  # ✅ 없으면 CSRF 오류
 @api_view(['POST'])
 def save_user_input(request):
     d = request.data
@@ -25,50 +32,76 @@ def save_user_input(request):
         },
     )
     return Response({"message":"사용자 정보 저장 완료"}, status=200)
-
+@csrf_exempt
 @api_view(['POST'])
 def apply_teamup(request):
+    print("🔥 [views.py] apply_teamup 요청 도착!", request.method)
+    print("📦 request.data:", request.data)
+    print("📦 request.data:", request.data)
+    print("🔢 type(userId):", type(request.data.get("userId")))
+
     raw = request.data.get("userId")
     if raw is None:
-        return Response({"message":"userId가 필요합니다."}, status=400)
+        return Response({"message": "userId가 필요합니다."}, status=400)
+
     try:
         user_pk = int(str(raw).strip())
     except ValueError:
-        return Response({"message":"userId는 정수여야 합니다."}, status=400)
+        return Response({"message": "userId는 정수여야 합니다."}, status=400)
 
+    # 이미 팀에 소속된 경우 예외 처리
     if TeamMember.objects.filter(user_id=user_pk).exists():
-        return Response({"message":"이미 팀에 속한 유저입니다."}, status=400)
+        return Response({"message": "이미 팀에 속한 유저입니다."}, status=400)
 
+    # 현재 DB에 존재하는 유저인지 확인
     try:
-        WaitingUser.objects.get(user_id=str(user_pk))
-    except WaitingUser.DoesNotExist:
-        return Response({"message":"대기열에 존재하지 않습니다."}, status=404)
+        applicant = User.objects.get(id=user_pk)
+    except User.DoesNotExist:
+        return Response({"message": "해당 유저를 찾을 수 없습니다."}, status=404)
 
-    waiting = list(WaitingUser.objects.all())
-    # 리워드 보유자 우선, 그리고 신청자 가깝게
-    waiting.sort(key=lambda w: (not bool(w.has_reward), w.user_id != str(user_pk)))
-    if len(waiting) < TEAM_SIZE:
-        return Response({"message":"인원이 부족합니다. 대기열에서 대기 중입니다."}, status=200)
+    # 아직 팀에 소속되지 않은 모든 유저를 users 테이블에서 불러오기
+    available_users = list(User.objects.exclude(
+        id__in=TeamMember.objects.values_list("user_id", flat=True)
+    ))
 
-    selected = waiting[:TEAM_SIZE]
-    if not str(selected[0].user_id).isdigit():
-        return Response({"message":"대기열 user_id가 숫자가 아닙니다."}, status=400)
-    leader_pk = int(selected[0].user_id)
+    # 리워드 유저 우선 + 신청자는 우선적으로 정렬
+    available_users.sort(key=lambda u: (not bool(getattr(u, "has_reward", False)), u.id != user_pk))
+
+    if len(available_users) < TEAM_SIZE:
+        # 매칭 인원이 부족하면 대기열로 이동
+        WaitingUser.objects.update_or_create(
+            user_id=user_pk,
+            defaults={
+                "skills": applicant.skills,
+                "main_role": applicant.main_role,
+                "sub_role": applicant.sub_role,
+                "keywords": applicant.keywords,
+                "has_reward": applicant.has_reward,
+            }
+        )
+        return Response({"message": "인원이 부족합니다. 대기열에 등록되었습니다."}, status=200)
+
+    selected_users = available_users[:TEAM_SIZE]
+    leader_pk = selected_users[0].id
 
     with transaction.atomic():
         new_team = Team.objects.create(
-            name=None, leader_id=leader_pk, matching_type='auto', is_finalized=False
+            name=None,
+            leader_id=leader_pk,
+            matching_type='auto',
+            is_finalized=False
         )
-        for idx, w in enumerate(selected):
+
+        for idx, u in enumerate(selected_users):
             TeamMember.objects.create(
                 team_id=new_team.id,
-                user_id=int(w.user_id),
-                role='leader' if idx==0 else 'member',
+                user_id=u.id,
+                role='leader' if idx == 0 else 'member'
             )
-            w.delete()
 
-    return Response({"message":"팀 매칭 완료","teamId":new_team.id}, status=201)
+    return Response({"message": "팀 매칭 완료", "teamId": new_team.id}, status=201)
 
+@csrf_exempt
 @api_view(['GET'])
 def get_matched_teams(request):
     teams = Team.objects.prefetch_related('teammember_set').all()
@@ -77,7 +110,7 @@ def get_matched_teams(request):
         "members": [tm.user_id for tm in t.teammember_set.all()],
         "status": "confirmed" if t.is_finalized else "pending",
     } for t in teams], status=200)
-
+@csrf_exempt
 @api_view(['POST'])
 def submit_feedback(request):
     team_id = request.data.get("teamId")
@@ -188,3 +221,21 @@ def submit_feedback(request):
             "teamId": team_id,
             "members": members
         }, status=200)
+# ✅ 추가할 코드 (TeamMatching1/views.py 맨 아래에 넣어줘)
+
+
+@api_view(['GET'])
+def get_waiting_users(request):
+    users = User.objects.all()
+    result = []
+    for u in users:
+        result.append({
+            "id": u.id,
+            "name": u.name,
+            "mainRole": u.main_role,
+            "subRole": u.sub_role,
+            "keywords": u.keywords,
+            "rating": u.rating,
+            "participation": u.participation,
+        })
+    return Response(result)

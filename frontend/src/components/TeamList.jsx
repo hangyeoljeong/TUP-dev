@@ -9,11 +9,6 @@ const TeamList = ({ matched, feedbacks, onFeedback, currentUser }) => {
 
   const myTeam = myTeamIndex !== -1 ? matched[myTeamIndex] : null;
 
-  // 현재 유저가 속한 팀원 리스트 정렬: currentUser → 나머지 팀원
-  const sortedMyTeam = myTeam
-    ? [...myTeam].sort((a, b) => (a.id === currentUser?.id ? -1 : b.id === currentUser?.id ? 1 : 0))
-    : [];
-
   // 나머지 팀 목록 (내 팀 제외)
   const otherTeams = matched.filter((_, idx) => idx !== myTeamIndex);
   
@@ -64,6 +59,20 @@ const TeamList = ({ matched, feedbacks, onFeedback, currentUser }) => {
                 <strong style={{ fontSize: '1.05rem' }}>
                   {member.name}{member.id === currentUser?.id ? "" : ""}
                 </strong>
+                 {(member.rating === undefined || member.participation === undefined) && (
+                  <span
+                    style={{
+                      backgroundColor: '#FF6B35',
+                      color: 'white',
+                      fontSize: '0.75rem',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: '12px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    NEW
+                  </span>
+                )}
               </div>
 
               <div style={{ paddingLeft: '1.5rem' }}>

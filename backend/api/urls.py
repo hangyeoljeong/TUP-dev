@@ -1,11 +1,11 @@
 from django.urls import path, include
-from .views import (
+from ..TeamMatching2.views import (
     TeamListView, TeamCreateView, TeamDetailView, TeamApplyView, InviteUserView,
     AcceptInviteView, RejectInviteView, MyInvitesView,
     AcceptApplicationView, RejectApplicationView, MyApplicationsView,
     ApplicantFilterView
 )
-from .views import UserProfileUpdateView
+from ..TeamMatching2.views import UserProfileUpdateView
 
 
 urlpatterns = [

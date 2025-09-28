@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: tup-dev
+    ports:
+      - "8000:8000"   # Django
+      - "3000:3000"   # React
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      - ./DB:/app/DB
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - NODE_OPTIONS=--max-old-space-size=2048
+    command: [ "supervisord", "-c", "/app/supervisord.conf" ]

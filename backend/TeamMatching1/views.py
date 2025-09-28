@@ -146,7 +146,7 @@ def submit_feedback(request):
     # 가능한 경우 api.UserProfile에서 WaitingUser 기본값 복구
     def _rehydrate_defaults(uid: int):
         try:
-            from api.models import UserProfile
+            from backend.TeamMatching2.models import UserProfile
             up = UserProfile.objects.get(user__id=uid)
             return {
                 "skills": up.skills or [],

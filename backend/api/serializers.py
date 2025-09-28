@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import UserProfile, Team, Application, Invitation
+from ..TeamMatching2.models import UserProfile, Team, Application, Invitation
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers

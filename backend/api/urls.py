@@ -1,36 +1,14 @@
+# backend/api/urls.py
 from django.urls import path, include
-from ..TeamMatching2.views import (
-    TeamListView, TeamCreateView, TeamDetailView, TeamApplyView, InviteUserView,
-    AcceptInviteView, RejectInviteView, MyInvitesView,
-    AcceptApplicationView, RejectApplicationView, MyApplicationsView,
-    ApplicantFilterView
-)
-from ..TeamMatching2.views import UserProfileUpdateView
-
+from .views import APIRootView, HealthCheckView, ServerTimeView, WhoAmIView
 
 urlpatterns = [
-    path('tm2/', include('api.tm2.urls')),
-    # 팀
-    path('teams/', TeamListView.as_view(), name='team-list'),  
-    path('teams/create/', TeamCreateView.as_view(), name='team-create'),  
-    path('teams/<int:team_id>/', TeamDetailView.as_view(), name='team-detail'),  
-    path('teams/<int:team_id>/apply/', TeamApplyView.as_view(), name='team-apply'),  
-    path('teams/<int:team_id>/invite/', InviteUserView.as_view(), name='team-invite'),  
+    path("", APIRootView.as_view(), name="api-root"),
+    path("health/", HealthCheckView.as_view(), name="api-health"),
+    path("server-time/", ServerTimeView.as_view(), name="api-server-time"),
+    path("whoami/", WhoAmIView.as_view(), name="api-whoami"),
 
-    # 초대
-    path('invitations/<int:invite_id>/accept/', AcceptInviteView.as_view(), name='accept-invite'),  
-    path('invitations/<int:invite_id>/reject/', RejectInviteView.as_view(), name='reject-invite'),  
-    path('my-invites/', MyInvitesView.as_view(), name='my-invites'),  
-
-    # 신청
-    path('applications/<int:application_id>/accept/', AcceptApplicationView.as_view(), name='accept-application'),  
-    path('applications/<int:application_id>/reject/', RejectApplicationView.as_view(), name='reject-application'),  
-    path('my-applications/', MyApplicationsView.as_view(), name='my-applications'),  
-
-    # 유저 필터링 
-    path('applicants/filter/', ApplicantFilterView.as_view(), name='applicant-filter'),
-    
-    # 프로필 업데이트
-    path('profile/update/', UserProfileUpdateView.as_view(), name='userprofile-update'),
-    
+    # 매칭 앱들 네임스페이스 묶기
+    path("team1/", include("TeamMatching1.urls")),
+    path("team2/", include("TeamMatching2.urls")),
 ]

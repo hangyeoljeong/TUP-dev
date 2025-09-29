@@ -1,33 +1,48 @@
-"""
-URL configuration for tup_back project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
-from django.contrib import admin
-from django.urls import path, include
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
+# TeamMatching2/urls.py
+from django.urls import path
+from .views import (
+    TeamCreateView,
+    UserProfileUpdateView,
+    TeamApplyView,
+    AcceptInviteView,
+    RejectInviteView,
+    AcceptApplicationView,
+    RejectApplicationView,
+    InviteUserView,
+    TeamListView,
+    TeamDetailView,
+    MyInvitesView,
+    MyApplicationsView,
+    ApplicantFilterView,
 )
 
+app_name = "team_matching2"
+
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # 팀 목록/생성/상세
+    path("teams/", TeamListView.as_view(), name="team-list"),
+    path("teams/create/", TeamCreateView.as_view(), name="team-create"),
+    path("teams/<int:team_id>/", TeamDetailView.as_view(), name="team-detail"),
 
-    # JWT 토큰 발급 & 갱신
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # 팀에 지원 / 사용자 초대
+    path("teams/<int:team_id>/apply/", TeamApplyView.as_view(), name="team-apply"),
+    path("teams/<int:team_id>/invite/", InviteUserView.as_view(), name="invite-user"),
 
-    # 앱의 API URL 연결
-    path('api/', include('api.urls')),  # <- 여기 your_app_name 수정
+    # 초대 수락/거절
+    path("invites/<int:invite_id>/accept/", AcceptInviteView.as_view(), name="invite-accept"),
+    path("invites/<int:invite_id>/reject/", RejectInviteView.as_view(), name="invite-reject"),
+
+    # 신청 수락/거절 (리더 전용)
+    path("applications/<int:application_id>/accept/", AcceptApplicationView.as_view(), name="application-accept"),
+    path("applications/<int:application_id>/reject/", RejectApplicationView.as_view(), name="application-reject"),
+
+    # 내 초대/신청 조회
+    path("me/invites/", MyInvitesView.as_view(), name="my-invites"),
+    path("me/applications/", MyApplicationsView.as_view(), name="my-applications"),
+
+    # 내 프로필 수정
+    path("users/me/", UserProfileUpdateView.as_view(), name="userprofile-update"),
+
+    # 지원자 필터
+    path("applicants/filter/", ApplicantFilterView.as_view(), name="applicant-filter"),
 ]

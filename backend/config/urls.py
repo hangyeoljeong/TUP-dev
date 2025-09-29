@@ -1,23 +1,25 @@
-"""
-URL configuration for backend project.
-
-The `urlpatterns` list routes URLs to views.
-"""
 from django.contrib import admin
 from django.urls import path, include
-# JWT를 쓸 거면 아래 두 줄 주석 해제 + simplejwt 설치
-# from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from django.http import JsonResponse
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+def healthz(_):
+    return JsonResponse({"ok": True})
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path("admin/", admin.site.urls),
 
-    # TM1 (자동매칭) — 별도 앱
-    path('api/', include('TeamMatching1.urls')),
+    # 헬스체크 (Docker healthcheck 용)
+    path("healthz/", healthz),
 
-    # TM2 (초대/지원) — api 서브라우터에서 관리 (api/urls.py -> api/tm2/urls.py)
-    path('api/', include('api.urls')),
+    # JWT
+    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
-    # JWT 엔드포인트 (선택)
-    # path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    # path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # 공용 API (ping/version 등)
+    path("api/", include("api.urls")),
+
+    # TeamMatching1 / TeamMatching2
+    path("api/tm1/", include("TeamMatching1.urls")),
+    path("api/tm2/", include("TeamMatching2.urls")),
 ]

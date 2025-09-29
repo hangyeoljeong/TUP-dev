@@ -1,3 +1,9 @@
-from django.shortcuts import render
+from django.http import JsonResponse
+from .models import AppUser
 
-# Create your views here.
+def ping(request):
+    return JsonResponse({"message": "pong"})
+
+def users(request):
+    data = list(AppUser.objects.values("id", "name", "main_role", "sub_role"))
+    return JsonResponse({"users": data})

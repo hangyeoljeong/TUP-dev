@@ -1,4 +1,3 @@
-# backend/api/urls.py
 from django.urls import path, include
 from .views import APIRootView, HealthCheckView, ServerTimeView, WhoAmIView
 
@@ -7,8 +6,6 @@ urlpatterns = [
     path("health/", HealthCheckView.as_view(), name="api-health"),
     path("server-time/", ServerTimeView.as_view(), name="api-server-time"),
     path("whoami/", WhoAmIView.as_view(), name="api-whoami"),
-
-    # 매칭 앱들 네임스페이스 묶기
-    path("team1/", include("TeamMatching1.urls")),
-    path("team2/", include("TeamMatching2.urls")),
+    path("team1/", include(("TeamMatching1.urls", "team_matching1"), namespace="team_matching1")),
+    path("team2/", include(("TeamMatching2.urls", "team_matching2"), namespace="team_matching2")),
 ]

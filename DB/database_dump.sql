@@ -46,31 +46,33 @@ LOCK TABLES `applications` WRITE;
 UNLOCK TABLES;
 
 --
--- Table structure for table `competitions`
+-- Table structure for table `contests`
 --
 
-DROP TABLE IF EXISTS `competitions`;
+DROP TABLE IF EXISTS `contests`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `competitions` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `title` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `host` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+CREATE TABLE `contests` (
+  `id` int NOT NULL,
+  `title` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `description` text COLLATE utf8mb4_general_ci,
+  `category` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `deadline` date DEFAULT NULL,
-  `category` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `start` date DEFAULT NULL,
+  `organizer` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `image` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `competitions`
+-- Dumping data for table `contests`
 --
 
-LOCK TABLES `competitions` WRITE;
-/*!40000 ALTER TABLE `competitions` DISABLE KEYS */;
-/*!40000 ALTER TABLE `competitions` ENABLE KEYS */;
+LOCK TABLES `contests` WRITE;
+/*!40000 ALTER TABLE `contests` DISABLE KEYS */;
+INSERT INTO `contests` VALUES (1,'2025 AWS x Codetree 프로그래밍 경진대회','클라우드 환경에서의 문제 해결 프로그래밍','프로그래밍, 클라우드','2025-05-16','2025-04-21','AWS / 코드트리','/aws.png'),(2,'제7회 서울교육 데이터 분석·활용 아이디어 공모전','교육 데이터를 활용한 분석 및 시각화','데이터/코딩','2025-06-01','2025-04-21','서울특별시교육청','/seoul.png'),(3,'2025년 경기도서관 크리에이티브 시너지 공모전','공공도서관 시스템 개선 아이디어 공모','IT기획/프로그래밍','2025-06-30','2025-04-09','경기도 / 경기도서관','/creative.png'),(4,'2025 GH 공간복지 청년 공모전','공간 기술 기반의 아이디어 및 프로토타입 공모','공간IT/UX설계','2025-06-29','2025-06-02','경기주택도시공사','/gh.png'),(5,'제6회 뉴스읽기 뉴스일기 공모전','뉴스 데이터를 활용한 콘텐츠 기획','미디어/코딩교육','2025-07-31','2025-04-07','한국언론진흥재단','/news.png'),(6,'XRPL HACKATHON SEOUL 2025','Web3 및 핀테크에 관심 있는 개발자 대상 해커톤','게임/소프트웨어','2025-09-20','2025-08-04','XRPL Korea','/xrpl.png'),(8,'2025 제5회 청소년 IT경시대회','전국 초·중·고 재학생 대상 IT 경시대회 (프로그래밍 언어, 알고리즘, 인공지능 데이터 분석 등 다양한 부문)','게임/소프트웨어','2025-09-10','2025-08-18','한국정보기술진흥원(주)','/kitpa.png'),(9,'AI Co-Scientist : 2025 Samsung AI Challenge','AI Agent가 주도하는 시스템을 설계하고 운영하는 챌린지. 개인 또는 팀 (최대 3명)으로 참여 가능.','게임/소프트웨어','2025-09-12','2025-08-04','삼성전자 AI센터','/samsungai.png'),(10,'토스 게임 공모전 - 토스 HTML5 게임 챌린지 with 넵튠','HTML5 기반 창작 게임 공모. 하이퍼 캐주얼부터 RPG까지 가능하며, 총 상금 8천만원 규모.','게임/소프트웨어, HTML5 게임, 창작게임','2025-11-03','2025-08-25','(주)비바리퍼블리카','/tossgame.png'),(11,'2025 디스플레이 챌린지(Display Challenge) 공모전','문화와 기술이 만나는 곳, 디스플레이로 상상하는 내일. 영화, 공연, 게임, 미디어아트 등 응용분야와 제품/콘텐츠 아이디어 제안.','게임/소프트웨어, 기획/아이디어, 문화기술','2025-08-31','2025-08-04','한국디스플레이연구조합','/display.png'),(12,'2025 동원 AI Challenge','소비자 페르소나 기반 동원 신제품 월별 수요 예측 AI 대회. 만 19세 이상 참여 가능하며 자동채점 및 오프라인 발표 심사를 거쳐 총 7천만 원 상금 지급.','게임/소프트웨어, 인공지능, 데이터 분석','2025-09-01','2025-07-21','동원그룹','/dongwon.png'),(13,'데이콘 K intelligence 해커톤 2025','AI Agent 개발과 프롬프트 엔지니어링 트랙으로 구성된 해커톤으로, 누구나 참여 가능하며 최대 2,000만원의 상금이 수여됨.','게임/소프트웨어, AI개발, 해커톤','2025-09-08','2025-08-12','데이콘(주)','/dacon_k_intel_hackathon.png');
+/*!40000 ALTER TABLE `contests` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -328,4 +330,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-08-08 19:00:19
+-- Dump completed on 2025-09-01 14:48:57

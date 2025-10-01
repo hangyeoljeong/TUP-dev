@@ -20,7 +20,6 @@ INSTALLED_APPS = [
 
     # local apps
     "api",                      # ← 추가
-    "dbapp",
     "TeamMatching1.apps.TeamMatching1Config",
     "TeamMatching2.apps.TeamMatching2Config",           # apps.py 있으면 그대로 OK, 없다면 .apps.경로로 통일 권장
 ]

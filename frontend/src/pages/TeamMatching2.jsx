@@ -15,7 +15,12 @@ import {
   sendInvite,
   respondToInvite,
   getApplicants,
+  updateUserProfile,
+   deleteTeam,
+   deregisterProfile
+   ,
 } from "../api/teamup2";
+
 
 const allSkills = [
   "리더십",
@@ -39,54 +44,99 @@ const allSkills = [
   "자기주도성",
 ];
 
+// 더미팀 목록
 const baseTeams = [
-  // API로 불러오기
   {
     id: 1,
-    leader: "김민수",
+    leader: { name: "김민수", user: { username: "김민수" } },
     skills: ["React", "Node.js"],
-    lookingFor: ["디자이너", "기획자"],
+    looking_for: ["디자이너", "기획자"],
     category: "웹/앱 서비스 개발",
     status: "모집중",
-    maxMembers: 4,
+    max_members: 4,
     intro: "열정 가득한 팀장입니다.",
-    mainRole: "PM",
-    subRole: "프론트엔드 개발",
-    keywords: ["기획력, 리더십"],
-    rating: 4.0,
-    participation: 2,
+    // ★★★ members 배열에 leader 정보를 추가합니다 ★★★
+    members: [{ user: { username: "김민수" }, mainRole: "PM" }],
   },
   {
     id: 2,
-    leader: "서지훈",
+    leader: { name: "서지훈", user: { username: "서지훈" } },
     skills: ["Java", "Spring"],
-    lookingFor: ["프론트엔드 엔지니어"],
+    looking_for: ["프론트엔드 엔지니어"],
     category: "공공데이터 활용 서비스 개발",
     status: "모집중",
-    maxMembers: 3,
+    max_members: 3,
     intro: "함께 성장할 분을 찾습니다.",
-    mainRole: "백엔드 개발",
-    subRole: "웹 디자인",
-    keywords: ["꼼꼼함, 책임감"],
-    rating: 4.2,
-    participation: 4,
+    // ★★★ members 배열에 leader 정보를 추가합니다 ★★★
+    members: [{ user: { username: "서지훈" }, mainRole: "백엔드 개발" }],
   },
   {
     id: 3,
-    leader: "박영희",
+    leader: { name: "박영희", user: { username: "박영희" } },
     skills: ["Flutter", "Firebase"],
-    lookingFor: ["백엔드 개발자"],
+    looking_for: ["백엔드 개발자"],
     category: "데이터베이스 관련 운용",
     status: "모집완료",
-    maxMembers: 5,
+    max_members: 5,
     intro: "저와 함께 성장해요!",
-    mainRole: "DB 구축",
-    subRole: "서버 운용",
-    keywords: ["시간관리, 열정"],
-    rating: 4.5,
-    participation: 3,
+    members: [
+      { user: { username: "박영희" }, mainRole: "DB 구축" },
+      { user: { username: "팀원A" }, mainRole: "프론트엔드 개발" },
+      { user: { username: "팀원B" }, mainRole: "백엔드 개발" },
+      { user: { username: "팀원C" }, mainRole: "디자이너" },
+      { user: { username: "팀원D" }, mainRole: "기획자" },
+    ],
   },
 ];
+
+// 더미 팀원 목록
+const baseApplicants = [
+  {
+    id: 101,
+    user: { username: "나개발" },
+    skills: ["React", "TypeScript", "GraphQL"],
+    keywords: ["꼼꼼함", "책임감", "소통"],
+    mainRole: "프론트엔드 개발자",
+    subRole: "UI/UX 디자이너",
+    rating: 4.8,
+    participation: 5,
+    intro: "사용자 경험을 중요시하는 프론트엔드 개발자입니다."
+  },
+  {
+    id: 102,
+    user: { username: "박기획" },
+    skills: ["Figma", "Notion", "Jira"],
+    keywords: ["기획력", "분석력", "리더십"],
+    mainRole: "PM",
+    subRole: "서비스 기획자",
+    rating: 4.5,
+    participation: 8,
+    intro: "데이터 기반으로 문제를 해결하는 기획자입니다."
+  },
+  {
+    id: 103,
+    user: { username: "김서버" },
+    skills: ["Java", "Spring", "JPA", "MySQL"],
+    keywords: ["문제해결", "논리력", "끈기"],
+    mainRole: "백엔드 개발자",
+    subRole: "DBA",
+    rating: 4.7,
+    participation: 3,
+    intro: "안정적이고 확장성 있는 서버를 구축합니다."
+  },
+  {
+    id: 104,
+    user: { username: "이디자인" },
+    skills: ["Figma", "Adobe XD", "Zeplin"],
+    keywords: ["창의력", "공감력", "협업"],
+    mainRole: "UI/UX 디자이너",
+    subRole: "그래픽 디자이너",
+    rating: 4.9,
+    participation: 12,
+    intro: "직관적이고 아름다운 디자인을 추구합니다."
+  },
+];
+
 
 function TeamMatching2() {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -94,7 +144,7 @@ function TeamMatching2() {
   const [userType, setUserType] = useState(null);
   const [memberRegistered, setMemberRegistered] = useState(false);
   const [myProfile, setMyProfile] = useState({
-    name: "이명준",
+    user: { username: "이명준" },
     skills: [],
     mainRole: "",
     subRole: "",
@@ -120,30 +170,59 @@ function TeamMatching2() {
   const receivedApplications = applicationMap[selectedTeam?.id] || [];
   const navigate = useNavigate();
   const [teamList, setTeamList] = useState([]);
-  const [applicants, setApplicants] = useState([]);
-  const filteredApplicants = (applicationMap[selectedTeam?.id] || []).filter(
-    (u) => {
-      const roleMatch = filter.role ? u.mainRole?.includes(filter.role) : true;
-      const skillMatch = filter.skill
-        ? u.skills?.some((s) => s.includes(filter.skill))
-        : true;
-      const ratingMatch = u.rating >= filter.minRating;
-      return roleMatch && skillMatch && ratingMatch;
-    }
-  );
+  const [applicants, setApplicants] = useState(baseApplicants);
+  const [lastCreatedTeam, setLastCreatedTeam] = useState(null); // 마지막으로 생성한 팀 정보를 기억
+  const [wasRegisteredAsMember, setWasRegisteredAsMember] = useState(false); // 팀원으로 등록한 사실을 기억
+
+
+  const filteredApplicants = applicants.filter(
+  (u) => {
+    const roleMatch = filter.role ? u.mainRole?.includes(filter.role) : true;
+    const skillMatch = filter.skill
+      ? (u.skills || []).some((s) => s.includes(filter.skill))
+      : true;
+    const ratingMatch = u.rating >= filter.minRating;
+    return roleMatch && skillMatch && ratingMatch;
+  }
+);
 
   useEffect(() => {
-    const fetchTeams = async () => {
-      try {
-        const teamData = await getTeamList();
-        setTeamList(teamData);
-      } catch (err) {
-        toast.error("팀 목록 불러오기 실패");
-        console.error(err);
-      }
-    };
-    fetchTeams();
-  }, []);
+  const fetchTeams = async () => {
+    try {
+      const teamData = await getTeamList();
+      setTeamList(teamData); 
+    } catch (err) {
+      toast.error("팀 목록 불러오기 실패");
+      console.error(err);
+    }
+  };
+  fetchTeams();
+}, []);
+useEffect(() => {
+  const fetchInitialData = async () => {
+    try {
+      const realApplicants = await getApplicants(); // 1. 실제 데이터 불러오기
+
+      // 2. 더미 데이터와 실제 데이터를 합치기 (중복 제거)
+      const combinedData = new Map();
+      baseApplicants.forEach(app => combinedData.set(app.id, app)); // 더미 먼저 추가
+      (realApplicants || []).forEach(app => combinedData.set(app.id, app)); // 실제 데이터로 덮어쓰기
+
+      // 3. 합쳐진 데이터를 상태로 설정
+      setApplicants(Array.from(combinedData.values()));
+
+    } catch (err) {
+      // API 로딩 실패 시, 더미 데이터만 표시
+      setApplicants(baseApplicants);
+      toast.error("지원자 목록 로딩에 실패하여 임시 데이터를 표시합니다.");
+      console.error(err);
+    }
+  };
+  if (userType) {
+    fetchInitialData();
+  }
+}, [userType]);
+
   const sourceTeams = teamList.length ? teamList : baseTeams;
 
   const dummyTeams = sourceTeams.map((team) => {
@@ -164,24 +243,7 @@ function TeamMatching2() {
     };
   });
 
-  const handleAcceptApplication = async (user) => {
-    try {
-      await acceptApplicant(selectedTeam.id, user.id);
-      toast.success(`${user.name} 님의 신청을 수락했습니다.`);
-
-      // 신청 목록에서 제거하고, 팀 멤버 목록에 추가
-      receivedApplications((prev) => prev.filter((u) => u.id !== user.id));
-      setSelectedTeam({
-        ...selectedTeam,
-        members: [...selectedTeam.members, user],
-      });
-
-      setUserType("member"); // 필요한 경우 유지
-    } catch (err) {
-      console.error("수락 중 오류 발생:", err);
-      toast.error("신청 수락에 실패했습니다.");
-    }
-  };
+  
 
   const forceAccept = async (applicant) => {
     // API 연동
@@ -201,7 +263,7 @@ function TeamMatching2() {
         <div className="modal-box">
           <h3>{member.name} 님의 정보</h3>
           <p>
-            <strong>기술:</strong> {member.skills?.join(", ") || "-"}
+            <strong>기술:</strong> {member?.skills?.join(", ") || "-"}
           </p>
           <p>
             <strong>역할:</strong> {member.mainRole || "-"}
@@ -234,54 +296,73 @@ function TeamMatching2() {
   };
 
   const handleCreateTeam = async () => {
-    const { skills, lookingFor, category, maxMembers, intro } = newTeamInfo;
-    const { name, mainRole, subRole, keywords } = myProfile;
+  const { skills, lookingFor, category, maxMembers, intro } = newTeamInfo;
+  const { name, mainRole, subRole, keywords } = myProfile;
 
-    if (
-      !skills.trim() ||
-      !lookingFor.trim() ||
-      !category.trim() ||
-      !intro.trim() ||
-      !mainRole.trim() ||
-      !subRole.trim() ||
-      keywords.length === 0 ||
-      !maxMembers ||
-      maxMembers < 1
-    ) {
-      toast.warning("모든 입력 칸을 채워주세요.");
-      return;
-    }
-    const myInfo = {
-      name: "이명준",
-      skills: newTeamInfo.skills.split(",").map((s) => s.trim()),
-      mainRole: myProfile.mainRole,
-      subRole: myProfile.subRole,
-      keywords: myProfile.keywords, // ✅ 키워드 반영
-    };
-
-    const teamData = {
-      leader: name,
-      skills: skills.split(",").map((s) => s.trim()),
-      lookingFor: lookingFor.split(",").map((s) => s.trim()),
-      category,
-      maxMembers,
-      intro,
-      leaderInfo: {
-        name,
-        mainRole,
-        subRole,
-        keywords,
-      },
-    };
-    try {
-      const res = await createTeam(teamData); // ✅ API 연동
-      setSelectedTeam(res.data); // 서버 응답을 현재 선택된 팀으로 설정
-      toast.success("팀이 성공적으로 생성되었습니다!");
-    } catch (err) {
-      console.error(err);
-      toast.error("팀 생성에 실패했습니다.");
-    }
+  if (
+    !skills.trim() ||
+    !lookingFor.trim() ||
+    !category.trim() ||
+    !intro.trim() ||
+    !mainRole.trim() ||
+    !subRole.trim() ||
+    (keywords || []).length === 0 ||
+    !maxMembers ||
+    maxMembers < 1
+  ) {
+    toast.warning("모든 입력 칸을 채워주세요.");
+    return;
+  }
+ 
+  const teamData = {
+    leader: name,
+    skills: skills.split(",").map((s) => s.trim()),
+    lookingFor: lookingFor.split(",").map((s) => s.trim()),
+    category,
+    maxMembers,
+    intro,
+    leaderInfo: {
+      name,
+      mainRole,
+      subRole,
+      keywords,
+    },
   };
+
+  try {
+    // API 응답을 저장하는 변수 이름을 'newTeam'으로 통일합니다.
+    const newTeam = await createTeam(teamData);
+    
+    // 이제 모든 곳에서 'newTeam'을 올바르게 참조할 수 있습니다.
+    setSelectedTeam(newTeam); 
+    setLastCreatedTeam(newTeam); 
+    
+    toast.success("팀이 성공적으로 생성되었습니다!");
+
+  } catch (err) {
+    console.error(err);
+    toast.error("팀 생성에 실패했습니다.");
+  }
+};
+
+const handleDeleteTeam = async () => {
+  if (!selectedTeam) return;
+
+  if (window.confirm("정말로 팀을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
+    try {
+      await deleteTeam(selectedTeam.id);
+      toast.success("팀이 성공적으로 삭제되었습니다.");
+      setLastCreatedTeam(null);
+
+      // ★★★ 이 부분을 handleBack() 호출로 변경합니다! ★★★
+      handleBack(); 
+
+    } catch (err) {
+      toast.error("팀 삭제 중 오류가 발생했습니다.");
+      console.error("팀 삭제 오류:", err);
+    }
+  }
+};
 
   const handleApply = (team) => {
     setApplicationMap((prev) => {
@@ -293,37 +374,45 @@ function TeamMatching2() {
       return updated;
     });
   };
+
   //팀원 등록
   const handleApplyMember = async () => {
-    const { skills, mainRole, subRole, intro, keywords, id } = myProfile;
+  const { skills, mainRole, subRole, intro, keywords } = myProfile;
 
-    if (
-      skills.length === 0 ||
-      !mainRole.trim() ||
-      !subRole.trim() ||
-      !intro.trim() ||
-      keywords.length === 0
-    ) {
-      toast.warning("모든 항목을 입력해주세요!");
-      return;
-    }
+  if (
+    skills.length === 0 ||
+    !mainRole.trim() ||
+    !subRole.trim() ||
+    !intro.trim() ||
+    keywords.length === 0
+  ) {
+    toast.warning("모든 항목을 입력해주세요!");
+    return;
+  }
 
-    try {
-      // ✅ 백엔드 API 호출: /api/openteamup/teams/{teamId}/apply
-      await applyToTeam(selectedTeam.id, id); // id는 myProfile의 사용자 ID
 
-      toast.success("팀에 신청되었습니다!");
-      setMemberRegistered(true); // 신청 완료 상태 처리
-    } catch (err) {
-      console.error("팀 신청 오류:", err);
-      toast.error("신청 중 오류가 발생했습니다.");
-    }
-  };
+  try {
+    // ★★★ 핵심 수정 부분! ★★★
+    // 'applyToTeam' 대신 'updateUserProfile' API를 호출합니다.
+    // 현재 myProfile 상태에 저장된 사용자 정보를 서버로 보냅니다.
+    await updateUserProfile(myProfile);
+
+    toast.success("프로필이 성공적으로 등록되었습니다!");
+    setMemberRegistered(true); // 등록 완료 후, 팀 목록을 보는 화면으로 전환
+    setWasRegisteredAsMember(true); 
+  } catch (err) {
+    console.error("프로필 등록 오류:", err);
+    // 토스트 메시지를 좀 더 명확하게 변경
+    toast.error("프로필 등록 중 오류가 발생했습니다.");
+  }
+};
 
   const handleInvite = async (targetUser) => {
     try {
       await sendInvite(selectedTeam.id, targetUser.id, myProfile.id);
       toast.success("초대가 완료되었습니다!");
+
+      setSentInvites(prev => [...prev, targetUser]);
     } catch (err) {
       toast.error("초대 실패");
       console.error(err);
@@ -336,15 +425,28 @@ function TeamMatching2() {
     setSelectedTeam(null);
   };
 
-  const handleApplyToTeam = async (team) => {
-    try {
-      await applyToTeam(team.id, myProfile.id);
-      toast.success("신청이 완료되었습니다!");
-    } catch (err) {
-      toast.error("신청 중 오류가 발생했습니다.");
-      console.error(err);
-    }
-  };
+const handleApplyToTeam = async (team) => {
+  try {
+    // 기존 API 호출
+    await applyToTeam(team.id, myProfile.id); 
+    toast.success("신청이 완료되었습니다!");
+
+    // --- 여기부터 추가 ---
+    // 신청 성공 시, sentApplications 상태에 해당 팀 추가
+    setSentApplications((prev) => {
+      // 중복 추가 방지
+      if (prev.some(t => t.id === team.id)) {
+        return prev;
+      }
+      return [...prev, team];
+    });
+
+
+  } catch (err) {
+    toast.error("신청 중 오류가 발생했습니다.");
+    console.error(err);
+  }
+};
 
   const handleAcceptInvite = async (user, team) => {
     try {
@@ -390,22 +492,73 @@ function TeamMatching2() {
     fetchApplicants();
   }, []);
 
-  const renderTeamSlots = (team) => {
+const handleResumeAsLeader = () => {
+    setUserType('leader');
+    setSelectedTeam(lastCreatedTeam);
+  };
+
+  const handleResumeAsMember = () => {
+    setUserType('member');
+    setMemberRegistered(true);
+  };
+
+const renderTeamSlots = (team) => {
+    // 디버깅을 위해 console.log를 추가하여 데이터 구조를 직접 확인해보세요.
+    console.log("Rendering team members:", team.members);
+
     return team.members.map((member, idx) => (
       <div key={idx} className="team-member-card" style={{ width: "95%" }}>
         <p>
-          👤 <strong>{member.name}</strong>
+          👤 <strong>{member?.user?.username}</strong>
         </p>
-        <p>기술 스택 : {member.skills.join(", ")}</p>
+        <p>기술 스택 : {(member.skills || []).join(", ")}</p>
         <p>희망 역할군 : {member.mainRole || "-"}</p>
         <p>보조 가능 역할군 : {member.subRole || "-"}</p>
-        <p>보유 역량 : {member.keywords.join(", ")}</p>
+        <p>보유 역량 : {(member.keywords || []).join(", ")}</p>
         <p>
           ⭐ {member.rating?.toFixed(1) || "4.8"} 참여{" "}
           {member.participation || 2}회
         </p>
       </div>
     ));
+};
+
+//팀원 대기열 해제
+  const handleDeregisterMember = async () => {
+    // 사용자에게 정말 삭제할 것인지 재확인
+    if (window.confirm("팀원 대기열에서 등록을 해제하시겠습니까? 프로필 정보가 삭제됩니다.")) {
+      try {
+        await deregisterProfile();
+        toast.success("등록이 해제되었습니다.");
+        
+        setWasRegisteredAsMember(false);
+        // 모든 상태를 초기화하고 메인 화면으로 돌아가는 함수 호출
+        handleBack(); 
+        
+      } catch (err) {
+        toast.error("등록 해제 중 오류가 발생했습니다.");
+        console.error("등록 해제 오류:", err);
+      }
+    }
+  };
+
+  const handleAcceptApplication = async (user) => {
+    try {
+      await acceptApplicant(selectedTeam.id, user.id);
+      toast.success(`${user.name} 님의 신청을 수락했습니다.`);
+
+      // 신청 목록에서 제거하고, 팀 멤버 목록에 추가
+      receivedApplications((prev) => prev.filter((u) => u.id !== user.id));
+      setSelectedTeam({
+        ...selectedTeam,
+        members: [...selectedTeam.members, user],
+      });
+
+      setUserType("member"); // 필요한 경우 유지
+    } catch (err) {
+      console.error("수락 중 오류 발생:", err);
+      toast.error("신청 수락에 실패했습니다.");
+    }
   };
 
   const PopularStats = ({ applicants = [] }) => {
@@ -533,14 +686,25 @@ function TeamMatching2() {
         </p>
         {!userType ? (
           <div className="role-toggle">
-            <button onClick={() => setUserType("leader")}>👩‍💼 팀장 시작</button>
-            <button onClick={() => setUserType("member")}>👨‍👩‍👧‍👦 팀원 시작</button>
-          </div>
-        ) : (
+            {lastCreatedTeam ? (
+              // 생성했던 팀이 있으면 '돌아가기' 버튼 표시
+            <button onClick={handleResumeAsLeader}>👩‍💼 내 팀으로 돌아가기</button>
+          ) : wasRegisteredAsMember ? (
+            // 등록했던 프로필이 있으면 '계속 찾기' 버튼 표시
+            <button onClick={handleResumeAsMember}>👨‍👩‍👧‍👦 팀 계속 찾기</button>
+          ) : (
+            // 아무것도 없으면 원래 시작 버튼 표시
+            <>
+              <button onClick={() => setUserType("leader")}>👩‍💼 팀장 시작</button>
+              <button onClick={() => setUserType("member")}>👨‍👩‍👧‍👦 팀원 시작</button>
+            </>
+          )}
+        </div>
+      ) : (
           <button className="back-button" onClick={handleBack}>
-            🔙 뒤로가기
-          </button>
-        )}
+          🔙 뒤로가기
+        </button>
+      )}
       </div>
       {!userType && (
         <div className="matching-desc">
@@ -734,67 +898,40 @@ function TeamMatching2() {
             <>
               <div className="log-section"></div>
               <div className="list-scroll">
-                {dummyTeams.map((team) => {
-                  const isAppliedTeam = sentApplications.some(
-                    (t) => t.id === team.id
-                  ); // ✅ 내가 신청한 팀인지 확인
-                  return (
-                    <div key={team.id} className="room-card">
-                      <h4>{team.leader}님의 팀</h4>
-                      <p>모집 역할군 : {team.lookingFor.join(", ")}</p>
-                      <p>공모전 분야 : {team.category || "미지정"}</p>
-                      <p>한 줄 소개 : {team.intro}</p>
+  {sourceTeams.map((team) => {
+    const currentMembers = (team.members || []).length;
+    const maxMembers = team.max_members;
+    const isFull = currentMembers >= maxMembers;
+    const statusText = isFull ? "모집완료" : "모집중";
 
-                      {(() => {
-                        const isOverridden = team.id === 3;
-                        const currentMembers = isOverridden
-                          ? 5
-                          : team.members.length;
-                        const maxMembers = isOverridden ? 5 : team.maxMembers;
-                        const isFull = currentMembers >= maxMembers;
-                        const statusText = isFull ? "모집완료" : "모집중";
-
-                        return (
-                          <>
-                            <p>
-                              모집 인원 :{" "}
-                              <strong>
-                                {currentMembers} / {maxMembers}
-                              </strong>
-                            </p>
-                            <div className="status-and-button">
-                              <span
-                                className={`status-badge ${
-                                  isFull ? "closed" : "open"
-                                }`}
-                              >
-                                {statusText}
-                              </span>
-                            </div>
-                            <br />
-                          </>
-                        );
-                      })()}
-
-                      <button
-                        className="cta-button"
-                        onClick={() => handleApplyToTeam(team)}
-                      >
-                        신청하기
-                      </button>
-
-                      {isAppliedTeam && (
-                        <button
-                          className="sim-accept-button"
-                          onClick={() => handleAcceptApplication(team)}
-                        >
-                          시연용 수락버튼
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+    return (
+      <div key={team.id} className="room-card">
+        <h4>{team?.leader?.name}님의 팀</h4>
+        <p>모집 역할군 : {(team.looking_for || []).join(", ")}</p>
+        <p>공모전 분야 : {team.category || "미지정"}</p>
+        <p>한 줄 소개 : {team.intro}</p>
+        <p>
+          모집 인원 :{" "}
+          <strong>
+            {currentMembers} / {maxMembers}
+          </strong>
+        </p>
+        <div className="status-and-button">
+          <span className={`status-badge ${isFull ? "closed" : "open"}`}>
+            {statusText}
+          </span>
+        </div>
+        <br />
+        <button
+          className="cta-button"
+          onClick={() => handleApplyToTeam(team)}
+        >
+          신청하기
+        </button>
+      </div>
+    );
+  })}
+</div>
             </>
           )}
 
@@ -803,16 +940,13 @@ function TeamMatching2() {
             <div className="my-team-info">
               <h3>{userType === "leader" ? "내 팀 정보" : "신청한 팀 정보"}</h3>
               <div className="team-detail-box">
-                <p>
-                  <strong>모집 역할군 : </strong>{" "}
-                  {selectedTeam.lookingFor.join(", ")}
-                </p>
+                <p><strong>모집 역할군 : </strong> {(selectedTeam.looking_for || []).join(", ")}</p>
                 <p>
                   <strong>공모전 분야 : </strong>{" "}
                   {selectedTeam.category || "미지정"}
                 </p>
                 <p>
-                  <strong>모집 인원 : </strong> {selectedTeam.members.length} /{" "}
+                  <p><strong>모집 인원 : </strong> {(selectedTeam.members || []).length} / {selectedTeam.max_members}</p>
                   {selectedTeam.maxMembers}
                 </p>
                 <p>
@@ -823,6 +957,15 @@ function TeamMatching2() {
               <div className="team-member-list">
                 {renderTeamSlots(selectedTeam)}
               </div>
+              {userType === 'leader' && (
+                <button 
+                  onClick={handleDeleteTeam} 
+                  className="cta-button danger" 
+                  style={{marginTop: '20px', backgroundColor: '#e74c3c'}}
+                >
+                  팀 삭제하기
+                </button>
+    )}
               {userType === "leader" && (
                 <div className="log-box">
                   <h4>📤 초대한 사람 목록</h4>
@@ -921,47 +1064,47 @@ function TeamMatching2() {
 
               <h4>팀을 찾고 있는 사람</h4>
               <div className="list-scroll">
-                {filteredApplicants.map((u) => (
-                  <div key={u.id} className="applicant-card">
-                    <div>
-                      <strong>{u.name}</strong>
-                    </div>
-                    <div className="info-row">
-                      <strong>기술 스택 : </strong> {u.skills.join(", ")}
-                    </div>
-                    <div className="info-row">
-                      <strong>희망 역할군 : {u.mainRole}</strong>
-                    </div>
-                    <div className="info-row">
-                      <strong>보조 가능 역할군 : {u.subRole}</strong>
-                    </div>
-                    <div className="info-row">
-                      <strong>보유 역량 : {u.keywords.join(", ")}</strong>
-                    </div>
-                    <div className="info-row">
-                      <strong>한 줄 소개 : {u.intro}</strong>
-                    </div>
-                    <div className="info-row">
-                      <p>
-                        ⭐ {u.rating?.toFixed(1) || "-"} 참여{" "}
-                        {u.participation || 0}회
-                      </p>
-                    </div>
-                    <button
-                      className="invite-btn"
-                      onClick={() => handleInvite(u)}
-                    >
-                      초대하기
-                    </button>
-                    <button
-                      className="sample-button"
-                      onClick={() => handleApplyMember(u)}
-                    >
-                      내 팀으로 신청
-                    </button>
+              {filteredApplicants.length > 0 ? (
+              filteredApplicants.map((u) => (
+                <div key={u.id} className="applicant-card">
+                  <div>
+                    <strong>{u?.name}</strong>
                   </div>
-                ))}
+                <div className="info-row">
+                  <strong>기술 스택 : </strong> {(u.skills || []).join(", ")}
+                </div>
+                <div className="info-row">
+                  <strong>희망 역할군 : {u.mainRole}</strong>
+                </div>
+              <div className="info-row">
+                  <strong>보조 가능 역할군 : {u.subRole}</strong>
               </div>
+              <div className="info-row">
+                <strong>보유 역량 : </strong> {(u.keywords || []).join(", ")}
+              </div>
+              <div className="info-row">
+                <strong>한 줄 소개 : {u.intro}</strong>
+              </div>
+              <div className="info-row">
+                <p>
+                  ⭐ {u.rating?.toFixed(1) || "-"} 참여{" "}
+                  {u.participation || 0}회
+                </p>
+              </div>
+              <button
+                className="invite-btn"
+                onClick={() => handleInvite(u)}
+              >
+                초대하기
+              </button>
+            </div>
+          ))
+        ) : (
+          <p style={{ textAlign: 'center', color: '#888', marginTop: '20px' }}>
+            현재 팀을 찾고 있는 사람이 없습니다.
+          </p>
+        )}
+      </div>
             </>
           )}
 
@@ -973,10 +1116,10 @@ function TeamMatching2() {
             <div className="my-info">
               <h4>내 정보</h4>
               <p>
-                <strong>이름 : {myProfile.name}</strong>{" "}
+                <strong>이름 : {myProfile?.user?.username}</strong>
               </p>
               <p>
-                <strong>기술 스택 : {myProfile.skills.join(", ")}</strong>{" "}
+                <strong>기술 스택 : {(myProfile.skills || []).join(", ")}</strong>
               </p>
               <p>
                 <strong>희망 역할군 : {myProfile.mainRole}</strong>
@@ -1022,8 +1165,19 @@ function TeamMatching2() {
                   </div>
                 ))}
               </div>
+              <button
+                onClick={handleDeregisterMember}
+                className="cta-button danger"
+                style={{marginTop: '20px', backgroundColor: '#e74c3c'}}
+              >
+              팀원 등록 해제
+              </button>
+
+              <div className="log-box">{/* 신청한 팀 로그 */}</div>
+              <div className="log-box">{/* 받은 초대 로그 */}</div>
             </div>
           )}
+          
         </div>
       </div>
     </div>

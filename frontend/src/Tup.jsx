@@ -80,19 +80,6 @@ const SkillManager = ({ skills, setSkills }) => {
   );
 };
 
-// 가상 사용자 10명
-const dummyUsers = [
-  { id: 1, name: "홍길동", skills: ["React", "JavaScript"] },
-  { id: 2, name: "김철수", skills: ["Python", "Django"] },
-  { id: 3, name: "이영희", skills: ["Java", "Spring"] },
-  { id: 4, name: "박민수", skills: ["C++", "알고리즘"] },
-  { id: 5, name: "최지우", skills: ["UI/UX", "Figma"] },
-  { id: 6, name: "정우성", skills: ["Node.js", "Express"] },
-  { id: 7, name: "한지민", skills: ["DB", "SQL"] },
-  { id: 8, name: "서준호", skills: ["React", "TypeScript"] },
-  { id: 9, name: "오세훈", skills: ["AI", "TensorFlow"] },
-  { id: 10, name: "임수정", skills: ["Flutter", "모바일"] },
-];
 
 // 드로어 메뉴 항목
 const drawerMenus = [

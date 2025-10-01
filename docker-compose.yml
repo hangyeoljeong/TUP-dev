@@ -1,20 +1,25 @@
 services:
-  app:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-      target: dev
-    container_name: tup-dev
+    container_name: tup-backend
     ports:
-      - "8000:8000"   # Django
-      - "3000:3000"   # React
+      - "8000:8000"
     volumes:
       - ./backend:/app/backend
-      - ./frontend:/app/frontend
       - ./DB:/app/DB
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings
-      - PYTHONDONTWRITEBYTECODE=1
-      - PYTHONUNBUFFERED=1
-      - NODE_OPTIONS=--max-old-space-size=2048
-    command: [ "supervisord", "-c", "/app/supervisord.conf" ]
+    command: ["python","backend/manage.py","runserver","0.0.0.0:8000"]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tup-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    command: ["npm","start"]

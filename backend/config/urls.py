@@ -18,8 +18,4 @@ urlpatterns = [
 
     # 공용 API (ping/version 등)
     path("api/", include("api.urls")),
-
-    # TeamMatching1 / TeamMatching2
-    path("api/tm1/", include("TeamMatching1.urls")),
-    path("api/tm2/", include("TeamMatching2.urls")),
 ]

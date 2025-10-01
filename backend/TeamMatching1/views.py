@@ -1,44 +1,45 @@
-
-# backend/TeamMatching1/views.py
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import transaction
-from dbapp.models import WaitingUser, Team, TeamMember, Feedback, User
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
+from django.contrib.auth import get_user_model
 import json
 
+from .models import WaitingUser, Team, TeamMember, Feedback  # ✅ 같은 앱에서 import
 
+User = get_user_model()  # ✅ Django 기본 User (username, email만 있음)
 
 # 팀 정원(기존 TM1 로직 기준 4명)
 TEAM_SIZE = 4
 
-@csrf_exempt  # ✅ 없으면 CSRF 오류
+
+@csrf_exempt
 @api_view(['POST'])
 def save_user_input(request):
     d = request.data
-    user_id = str(d.get("userId","")).strip()
+    user_id = str(d.get("userId", "")).strip()
     if not user_id:
-        return Response({"message":"userId가 필요합니다."}, status=400)
+        return Response({"message": "userId가 필요합니다."}, status=400)
 
     WaitingUser.objects.update_or_create(
         user_id=user_id,
         defaults={
-            "skills": d.get("skills",[]) or [],
+            "skills": d.get("skills", []) or [],
             "main_role": d.get("mainRole") or "unknown",
             "sub_role": d.get("subRole"),
-            "keywords": d.get("keywords",[]) or [],
+            "keywords": d.get("keywords", []) or [],
             "has_reward": bool(d.get("hasReward", False)),
         },
     )
-    return Response({"message":"사용자 정보 저장 완료"}, status=200)
+    return Response({"message": "사용자 정보 저장 완료"}, status=200)
+
+
 @csrf_exempt
 @api_view(['POST'])
 def apply_teamup(request):
     print("🔥 [views.py] apply_teamup 요청 도착!", request.method)
     print("📦 request.data:", request.data)
-    print("📦 request.data:", request.data)
-    print("🔢 type(userId):", type(request.data.get("userId")))
 
     raw = request.data.get("userId")
     if raw is None:
@@ -53,30 +54,30 @@ def apply_teamup(request):
     if TeamMember.objects.filter(user_id=user_pk).exists():
         return Response({"message": "이미 팀에 속한 유저입니다."}, status=400)
 
-    # 현재 DB에 존재하는 유저인지 확인
+    # Django User 테이블에서 존재 여부 확인
     try:
         applicant = User.objects.get(id=user_pk)
     except User.DoesNotExist:
         return Response({"message": "해당 유저를 찾을 수 없습니다."}, status=404)
 
-    # 아직 팀에 소속되지 않은 모든 유저를 users 테이블에서 불러오기
-    available_users = list(User.objects.exclude(
-        id__in=TeamMember.objects.values_list("user_id", flat=True)
-    ))
+    # 아직 팀에 소속되지 않은 모든 유저
+    available_users = list(
+        User.objects.exclude(id__in=TeamMember.objects.values_list("user_id", flat=True))
+    )
 
-    # 리워드 유저 우선 + 신청자는 우선적으로 정렬
+    # 리워드 유저 우선 + 신청자 우선
     available_users.sort(key=lambda u: (not bool(getattr(u, "has_reward", False)), u.id != user_pk))
 
     if len(available_users) < TEAM_SIZE:
-        # 매칭 인원이 부족하면 대기열로 이동
+        # 매칭 인원 부족 시 대기열 등록
         WaitingUser.objects.update_or_create(
             user_id=user_pk,
             defaults={
-                "skills": applicant.skills,
-                "main_role": applicant.main_role,
-                "sub_role": applicant.sub_role,
-                "keywords": applicant.keywords,
-                "has_reward": applicant.has_reward,
+                "skills": getattr(applicant, "skills", []),
+                "main_role": getattr(applicant, "main_role", "unknown"),
+                "sub_role": getattr(applicant, "sub_role", None),
+                "keywords": getattr(applicant, "keywords", []),
+                "has_reward": getattr(applicant, "has_reward", False),
             }
         )
         return Response({"message": "인원이 부족합니다. 대기열에 등록되었습니다."}, status=200)
@@ -91,7 +92,6 @@ def apply_teamup(request):
             matching_type='auto',
             is_finalized=False
         )
-
         for idx, u in enumerate(selected_users):
             TeamMember.objects.create(
                 team_id=new_team.id,
@@ -101,141 +101,88 @@ def apply_teamup(request):
 
     return Response({"message": "팀 매칭 완료", "teamId": new_team.id}, status=201)
 
+# backend/TeamMatching1/views.py
+
 @csrf_exempt
 @api_view(['GET'])
 def get_matched_teams(request):
     teams = Team.objects.prefetch_related('teammember_set').all()
-    return Response([{
-        "teamId": t.id,
-        "members": [tm.user_id for tm in t.teammember_set.all()],
-        "status": "confirmed" if t.is_finalized else "pending",
-    } for t in teams], status=200)
+    data = []
+    for t in teams:
+        members = list(t.teammember_set.values_list('user_id', flat=True))
+        data.append({
+            "teamId": t.id,
+            "members": members,
+            "status": "confirmed" if t.is_finalized else "pending",
+        })
+    return Response(data, status=200)
+
+
 @csrf_exempt
 @api_view(['POST'])
 def submit_feedback(request):
     team_id = request.data.get("teamId")
-    raw = request.data.get("userId")
+    raw_user = request.data.get("userId")
     agree = bool(request.data.get("agree", True))
-    if team_id is None or raw is None:
-        return Response({"message":"teamId, userId가 필요합니다."}, status=400)
-    try:
-        user_pk = int(str(raw).strip())
-    except ValueError:
-        return Response({"message":"userId는 정수여야 합니다."}, status=400)
 
-    # 피드백 저장/갱신
+    if team_id is None or raw_user is None:
+        return Response({"message": "teamId, userId가 필요합니다."}, status=400)
+
+    try:
+        user_pk = int(str(raw_user).strip())
+    except ValueError:
+        return Response({"message": "userId는 정수여야 합니다."}, status=400)
+
     Feedback.objects.update_or_create(
         team_id=team_id, user_id=user_pk, defaults={"is_agree": agree}
     )
 
-    # 현재 팀 구성원 수와 피드백 수 비교
     members_qs = TeamMember.objects.filter(team_id=team_id)
     cnt_members = members_qs.count()
     fbs = list(Feedback.objects.filter(team_id=team_id))
-    if len(fbs) < cnt_members:
-        return Response({"message":"피드백 저장 완료"}, status=201)
 
-    # 전원 제출됨
+    if len(fbs) < cnt_members:
+        return Response({"message": "피드백 저장 완료"}, status=201)
+
     if all(f.is_agree for f in fbs):
         Team.objects.filter(id=team_id).update(is_finalized=True)
-        return Response({"message":"모두 동의. 팀 확정 완료."}, status=200)
+        return Response({"message": "모두 동의. 팀 확정 완료."}, status=200)
 
-    # 일부 비동의 → 비동의자만 팀 이탈 + 대기열 복귀 + 결원 자동보충(4명까지)
+    # 일부 비동의 → 비동의자 제거 + 대기열 등록
     disagree_ids = [f.user_id for f in fbs if not f.is_agree]
+    for uid in disagree_ids:
+        TeamMember.objects.filter(team_id=team_id, user_id=uid).delete()
+        WaitingUser.objects.update_or_create(
+            user_id=str(uid),
+            defaults={"skills": [], "main_role": "unknown", "sub_role": None,
+                      "keywords": [], "has_reward": False}
+        )
 
-    # 가능한 경우 api.UserProfile에서 WaitingUser 기본값 복구
-    def _rehydrate_defaults(uid: int):
-        try:
-            from backend.TeamMatching2.models import UserProfile
-            up = UserProfile.objects.get(user__id=uid)
-            return {
-                "skills": up.skills or [],
-                "main_role": getattr(up, "mainRole", None) or "unknown",
-                "sub_role": getattr(up, "subRole", None),
-                "keywords": up.keywords or [],
-                "has_reward": bool(getattr(up, "has_reward", False)),
-            }
-        except Exception:
-            return {
-                "skills": [],
-                "main_role": "unknown",
-                "sub_role": None,
-                "keywords": [],
-                "has_reward": False,
-            }
+    Team.objects.filter(id=team_id).update(is_finalized=False)
+    Feedback.objects.filter(team_id=team_id).delete()
 
-    with transaction.atomic():
-        team = Team.objects.select_for_update().get(id=team_id)
-
-        # 1) 비동의자만 팀에서 제거 + 대기열 복귀
-        removed_leader = False
-        for uid in disagree_ids:
-            # 팀원 제거
-            TeamMember.objects.filter(team_id=team_id, user_id=uid).delete()
-            if team.leader_id == uid:
-                removed_leader = True
-            # 대기열 복귀(정보 복구)
-            WaitingUser.objects.update_or_create(
-                user_id=str(uid),
-                defaults=_rehydrate_defaults(uid),
-            )
-
-        # 2) 남은 팀원이 없으면 팀 해체
-        remaining = list(TeamMember.objects.filter(team_id=team_id).order_by('user_id'))
-        if not remaining:
-            Feedback.objects.filter(team_id=team_id).delete()
-            Team.objects.filter(id=team_id).delete()
-            return Response({"message": f"모두 비동의로 팀 해체. 비동의 {len(disagree_ids)}명 대기열 복귀 완료."}, status=200)
-
-        # 3) 리더가 나갔으면 새 리더 선임(남은 팀원 중 user_id가 가장 작은 사람) -> db 무결성 때문에 하나 무조건 정해야댐
-        if removed_leader:
-            new_leader_id = remaining[0].user_id
-            Team.objects.filter(id=team_id).update(leader_id=new_leader_id)
-
-        # 4) 결원 자동 보충 (정원 TEAM_SIZE까지)
-        current_cnt = len(remaining)
-        need = max(0, TEAM_SIZE - current_cnt)
-        if need > 0:
-            # 방금 팀에서 나간 비동의자들은 같은 라운드에서 재합류하지 않도록 제외
-            exclude_ids = set(str(x) for x in disagree_ids)
-            waiting = list(WaitingUser.objects.exclude(user_id__in=exclude_ids))
-            # 리워드 우선, 그다음 user_id 오름차순
-            waiting.sort(key=lambda w: (not bool(w.has_reward), int(w.user_id) if str(w.user_id).isdigit() else 1_000_000))
-            take = waiting[:need]
-            for w in take:
-                # 중복 방지
-                if not TeamMember.objects.filter(team_id=team_id, user_id=int(w.user_id)).exists():
-                    TeamMember.objects.create(team_id=team_id, user_id=int(w.user_id), role='member')
-                    w.delete()
-            # 인원 재확인
-            current_cnt = TeamMember.objects.filter(team_id=team_id).count()
-
-        # 팀은 아직 확정 아님(재동의 필요 가능성) → 기존 피드백은 리셋
-        Team.objects.filter(id=team_id).update(is_finalized=False)
-        Feedback.objects.filter(team_id=team_id).delete()
-
-        # 현재 멤버 목록 반환
-        members = list(TeamMember.objects.filter(team_id=team_id).values_list('user_id', flat=True))
-        return Response({
-            "message": f"비동의 {len(disagree_ids)}명 팀 이탈 및 대기열 복귀. 현재 팀원 {current_cnt}명, 정원 {TEAM_SIZE}명.",
-            "teamId": team_id,
-            "members": members
-        }, status=200)
-# ✅ 추가할 코드 (TeamMatching1/views.py 맨 아래에 넣어줘)
+    members = list(TeamMember.objects.filter(team_id=team_id).values_list('user_id', flat=True))
+    return Response({
+        "message": f"비동의 {len(disagree_ids)}명 제거 후 대기열 등록",
+        "teamId": team_id,
+        "members": members
+    }, status=200)
 
 
 @api_view(['GET'])
 def get_waiting_users(request):
-    users = User.objects.all()
+    waitings = WaitingUser.objects.all()
     result = []
-    for u in users:
+    for w in waitings:
         result.append({
-            "id": u.id,
-            "name": u.name,
-            "mainRole": u.main_role,
-            "subRole": u.sub_role,
-            "keywords": u.keywords,
-            "rating": u.rating,
-            "participation": u.participation,
+            "id": w.user_id,
+            "mainRole": w.main_role,
+            "subRole": w.sub_role,
+            "keywords": w.keywords,
+            "hasReward": w.has_reward,
         })
-    return Response(result)
+    return Response(result, status=200)
+
+
+# ✅ 나머지 get_matched_teams, submit_feedback, get_waiting_users도 동일하게
+# ✅ models에서 가져오고, User는 get_user_model()을 쓰도록 통일

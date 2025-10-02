@@ -1,7 +1,7 @@
 from django.db import models
 
 class WaitingUser(models.Model):
-    user_id = models.IntegerField(max_length=100, unique=True)
+    user_id = models.IntegerField(unique=True)
     skills = models.JSONField(default=list)
     main_role = models.CharField(max_length=100)
     sub_role = models.CharField(max_length=100, blank=True, null=True)
@@ -13,6 +13,10 @@ class WaitingUser(models.Model):
 
 
 class Team(models.Model):
+    name = models.CharField(max_length=100, blank=True, null=True)
+    leader_id = models.IntegerField(null=True, blank=True)   # ✅ null 허용
+    matching_type = models.CharField(max_length=20, default='auto')
+    is_finalized = models.BooleanField(default=False)
     status = models.CharField(max_length=20, default='pending')  # 'pending', 'confirmed'
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -33,16 +37,17 @@ class Feedback(models.Model):
     def __str__(self):
         return f"{self.user_id} ({'👍' if self.agree else '👎'})"
 
-# dbapp/models.py
 
 class User(models.Model):
     id = models.IntegerField(primary_key=True)  # 기존 users 테이블의 PK
     name = models.CharField(max_length=100)
     main_role = models.CharField(max_length=100)
     sub_role = models.CharField(max_length=100, blank=True, null=True)
+    skills = models.JSONField(default=list)
     keywords = models.JSONField(default=list)
     rating = models.FloatField(blank=True, null=True)
     participation = models.IntegerField(default=0)
+    has_reward = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'users'  # 기존 MySQL 테이블 이름 지정

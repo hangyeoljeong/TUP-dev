@@ -1,4 +1,4 @@
-# ---- backend only ----
+# ---- backend/Dockerfile ----
 FROM python:3.12-slim
 WORKDIR /app
 
@@ -7,12 +7,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates git build-essential supervisor \
   && rm -rf /var/lib/apt/lists/*
 
-# Python 패키지
-COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install -r /app/backend/requirements.txt
+# Python 패키지 설치
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install -r /app/requirements.txt
 
-# supervisord.conf 있으면 복사
-COPY supervisord.conf /app/supervisord.conf
+# 소스 코드 복사
+COPY backend /app/backend
 
 EXPOSE 8000
 CMD ["python", "backend/manage.py", "runserver", "0.0.0.0:8000"]

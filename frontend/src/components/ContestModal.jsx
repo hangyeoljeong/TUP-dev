@@ -60,15 +60,22 @@ const ContestModal = ({
         if (Array.isArray(list)) {
           setRawTeams(list);
           // TeamList가 멤버 객체를 기대하면 users에서 아이디 기준으로 수화(hydrate)
-          const hydrate = (ids) =>
-            ids.map(
-              (uid) =>
-                users.find((u) => u.id === uid) || {
-                  id: uid,
-                  name: `User ${uid}`,
-                }
-            );
-          setMatched(list.map((t) => hydrate(t.members)));
+          const hydrate = (members) =>
+            members.map((m) => {
+              const u = users.find((u) => u.id === m.id);
+              return {
+                id: m.id,
+                name: m.name || u?.name || `User ${m.id}`,
+                mainRole: m.main_role || u?.mainRole || null,
+                subRole: m.sub_role || u?.subRole || null,
+                skills: m.skills || u?.skills || [],
+                keywords: m.keywords || u?.keywords || [],
+                rating: m.rating ?? u?.rating,
+                participation: m.participation ?? u?.participation,
+              };
+            });
+
+setMatched(list.map((t) => hydrate(t.members)));
         }
       } catch (e) {
         console.error(e);
@@ -218,6 +225,10 @@ const ContestModal = ({
       toast.info("대기 인원이 부족해요! 팀업을 기다려주세요 😊");
       return;
     }
+
+    console.log("✅ currentUser:", currentUser);       // 👉 현재 유저 객체 확인
+   console.log("✅ currentUser.id:", currentUser?.id); // 👉 id 값이 실제로 존재하는지 확인
+
     if (!currentUser?.id) {
       toast.error("현재 사용자 정보가 없습니다.");
       return;

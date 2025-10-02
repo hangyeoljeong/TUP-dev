@@ -1,17 +1,13 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.db import transaction
-from dbapp.models import WaitingUser, Team, TeamMember, Feedback, User
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-import json
+from django.db import transaction
+from .models import User, Team, TeamMember, WaitingUser, Feedback
 
-
-
-# 팀 정원(기존 TM1 로직 기준 4명)
+# 팀 정원
 TEAM_SIZE = 4
 
-@csrf_exempt  # ✅ 없으면 CSRF 오류
+@csrf_exempt
 @api_view(['POST'])
 def save_user_input(request):
     d = request.data
@@ -19,37 +15,53 @@ def save_user_input(request):
     if not user_id:
         return Response({"message": "userId가 필요합니다."}, status=400)
 
-    # User 테이블에만 저장
+    # ✅ User 테이블에는 기본 정보만 저장
     User.objects.update_or_create(
         id=user_id,
         defaults={
             "name": d.get("name", ""),
-            "skills": d.get("skills", []) or [],
             "main_role": d.get("mainRole") or "unknown",
             "sub_role": d.get("subRole"),
             "keywords": d.get("keywords", []) or [],
             "rating": d.get("rating", 0),
             "participation": d.get("participation", 0),
+        },
+    )
+
+    # ✅ WaitingUser 테이블에는 매칭용 데이터 저장
+    WaitingUser.objects.update_or_create(
+        user_id=user_id,
+        defaults={
+            "skills": d.get("skills", []) or [],
+            "main_role": d.get("mainRole") or "unknown",
+            "sub_role": d.get("subRole"),
+            "keywords": d.get("keywords", []) or [],
             "has_reward": bool(d.get("hasReward", False)),
         },
     )
 
-    return Response({"message": "사용자 정보 저장 완료 (User 테이블에만)"}, status=200)
+    return Response({"message": f"user {user_id} 저장 완료"}, status=200)
+
+
 
 @csrf_exempt
 @api_view(['POST'])
 def apply_teamup(request):
     print("🔥 [views.py] apply_teamup 요청 도착!", request.method)
-    print("📦 request.data:", request.data)
+    print("📦 [RAW BODY]:", request.body)        # 요청 원본 body (바이트 문자열)
+    print("📦 [DATA PARSED]:", request.data)    # DRF가 파싱한 데이터
+    print("📦 [HEADERS]:", request.headers)     # 요청 헤더 확인
 
     raw = request.data.get("userId")
     if raw is None:
-        return Response({"message": "userId가 필요합니다."}, status=400)
+        return Response({"message": "userId가 필요합니다.", "debug": request.data}, status=400)
 
     try:
         user_pk = int(str(raw).strip())
     except ValueError:
-        return Response({"message": "userId는 정수여야 합니다."}, status=400)
+        return Response({"message": "userId는 정수여야 합니다.", "debug": raw}, status=400)
+    
+    print(f"✅ userId 정상 파싱됨: {user_pk}")
 
     # 이미 팀에 소속된 경우 예외 처리
     if TeamMember.objects.filter(user_id=user_pk).exists():
@@ -66,8 +78,8 @@ def apply_teamup(request):
         id__in=TeamMember.objects.values_list("user_id", flat=True)
     ))
 
-    # 리워드 유저 우선 + 신청자는 무조건 포함
-    available_users.sort(key=lambda u: (not bool(getattr(u, "has_reward", False)), u.id != user_pk))
+    # 신청자는 무조건 포함 → 제일 앞으로 보장
+    available_users.sort(key=lambda u: (u.id != user_pk))
 
     created_team_ids = []
 
@@ -77,19 +89,14 @@ def apply_teamup(request):
             selected_users = available_users[:TEAM_SIZE]
             available_users = available_users[TEAM_SIZE:]
 
-            leader_pk = selected_users[0].id
-
             new_team = Team.objects.create(
-                name=None,
-                leader_id=leader_pk,
-                matching_type='auto',
-                is_finalized=False
+                status="pending"
             )
-            for idx, u in enumerate(selected_users):
+
+            for u in selected_users:
                 TeamMember.objects.create(
-                    team_id=new_team.id,
-                    user_id=u.id,
-                    role='leader' if idx == 0 else 'member'
+                    team=new_team,
+                    user_id=u.id
                 )
             created_team_ids.append(new_team.id)
 
@@ -98,16 +105,46 @@ def apply_teamup(request):
             WaitingUser.objects.update_or_create(
                 user_id=u.id,
                 defaults={
-                    "skills": u.skills,
+                    "skills": [],
                     "main_role": u.main_role,
                     "sub_role": u.sub_role,
                     "keywords": u.keywords,
-                    "has_reward": u.has_reward,
+                    "has_reward": False,
                 }
             )
 
-    if created_team_ids:
-        return Response({"message": f"{len(created_team_ids)}개 팀 매칭 완료", "teamIds": created_team_ids}, status=201)
+    # ---- ✅ 응답 데이터에 팀/멤버 상세 정보 포함 ----
+    teams_data = []
+    for tid in created_team_ids:
+        team = Team.objects.get(id=tid)
+        members = []
+        for tm in TeamMember.objects.filter(team=team):
+            try:
+                u = User.objects.get(id=tm.user_id)
+                waiting_info = WaitingUser.objects.filter(user_id=u.id).first()
+                members.append({
+                    "id": u.id,
+                    "name": u.name,
+                    "mainRole": u.main_role,
+                    "subRole": u.sub_role,
+                    "keywords": u.keywords,
+                    "skills": waiting_info.skills if waiting_info else [],
+                    "rating": u.rating,
+                    "participation": u.participation,
+                })
+            except User.DoesNotExist:
+                members.append({"id": tm.user_id, "name": "알 수 없음"})
+        teams_data.append({
+            "teamId": team.id,
+            "members": members,
+            "status": team.status,
+        })
+
+    if teams_data:
+        return Response({
+            "message": f"{len(created_team_ids)}개 팀 매칭 완료",
+            "teams": teams_data
+        }, status=201)
     else:
         return Response({"message": "인원이 부족합니다. 대기열에 등록되었습니다."}, status=200)
 
@@ -116,11 +153,38 @@ def apply_teamup(request):
 @api_view(['GET'])
 def get_matched_teams(request):
     teams = Team.objects.prefetch_related('teammember_set').all()
-    return Response([{
-        "teamId": t.id,
-        "members": [tm.user_id for tm in t.teammember_set.all()],
-        "status": "confirmed" if t.is_finalized else "pending",
-    } for t in teams], status=200)
+    result = []
+
+    for t in teams:
+        members = []
+        for tm in t.teammember_set.all():
+            try:
+                u = User.objects.get(id=tm.user_id)
+                w = WaitingUser.objects.filter(user_id=tm.user_id).first()
+
+                members.append({
+                    "id": u.id,
+                    "name": u.name,
+                    "mainRole": w.main_role if w else u.main_role,
+                    "subRole": w.sub_role if w else u.sub_role,
+                    "skills": (w.skills if w else []),
+                    "keywords": (w.keywords if w else u.keywords),
+                    "rating": u.rating,
+                    "participation": u.participation,
+                })
+            except User.DoesNotExist:
+                members.append({
+                    "id": tm.user_id,
+                    "name": f"User {tm.user_id}",
+                })
+        result.append({
+            "teamId": t.id,
+            "members": members,
+            "status": "confirmed" if t.is_finalized else "pending",
+        })
+
+    return Response(result, status=200)
+
 @csrf_exempt
 @api_view(['POST'])
 def submit_feedback(request):

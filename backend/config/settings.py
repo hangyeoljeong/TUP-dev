@@ -52,7 +52,7 @@ TEMPLATES = [{
 }]
 
 # --- DB: sqlite 기본, 필요 시 mysql 전환 ---
-DB_ENGINE = os.getenv("DB_ENGINE", "sqlite")  # sqlite | mysql
+DB_ENGINE = os.getenv("DB_ENGINE", "mysql")  # sqlite | mysql
 
 if DB_ENGINE == "sqlite":
     DATABASES = {
@@ -63,19 +63,18 @@ if DB_ENGINE == "sqlite":
     }
 else:
     DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": os.getenv("DB_NAME", "tup_db"),
-            "USER": os.getenv("DB_USER", "root"),
-            "PASSWORD": os.getenv("DB_PASSWORD", ""),
-            "HOST": os.getenv("DB_HOST", "db"),
-            "PORT": os.getenv("DB_PORT", "3306"),
-            "OPTIONS": {
-                "charset": "utf8mb4",
-                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-            },
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.getenv("MYSQL_DATABASE", "tup_db"),
+        "USER": os.getenv("MYSQL_USER", "root"),
+        "PASSWORD": os.getenv("MYSQL_PASSWORD", "root"),
+        "HOST": os.getenv("MYSQL_HOST", "mysql"),
+        "PORT": os.getenv("MYSQL_PORT", "3306"),
+        "OPTIONS": {
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'"
         }
     }
+}
 
 # --- 인증 정책(기본 오픈) ---
 REST_FRAMEWORK = {

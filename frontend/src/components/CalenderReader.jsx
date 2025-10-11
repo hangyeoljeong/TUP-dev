@@ -28,7 +28,7 @@ function CalendarReader() {
               maxResults: 10,
               orderBy: 'startTime',
             })
-            .then(response => {
+            .then((response) => {
               console.log('캘린더 이벤트 목록:', response.result.items);
             });
         });

@@ -50,7 +50,7 @@ export const respondToInvite = async (inviteId, accepted) => {
 // 7. 지원자 목록(필터링)
 // 경로: /api/team2/applicants/filter/
 export const getApplicants = async (filters = {}) => {
-  const res = await axios.get(`team2/applicants/filter/`, { params: filters });
+  const res = await axios.get('team2/applicants/filter/', { params: filters });
   return res.data;
 };
 
@@ -78,6 +78,6 @@ export const deleteTeam = async (teamId) => {
 // 11. 팀원 대기열 해제
 // 경로: /api/team2/profile/update/
 export const deregisterProfile = async () => {
-  const res = await axios.delete(`team2/profile/update/`);
+  const res = await axios.delete('team2/profile/update/');
   return res.data;
 };

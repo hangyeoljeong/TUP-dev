@@ -10,14 +10,44 @@ function TeamPage() {
 
   // 예시 팀원 데이터
   const teamMembers = [
-    { id: 1, name : '이명준', mainRole : 'PM', subRole : '프론트엔드 개발', keywords : ['창의력', '실행력'], rating : 4.8, participation: 2 },
-    { id: 2, name : '홍수아', mainRole : '백엔드 개발', subRole : '서버 구축', keywords : ['공감력', '기획력'], rating : 4.3, participation: 3 },
-    { id: 3, name : '임수정', mainRole : '테스트 및 QA', subRole : 'DB 및 API 관리', keywords : ['친절함', '열정'], rating : 3.9, participation: 1 },
-    { id: 23, name : '신유찬', mainRole : '프론트엔드 구현', subRole : '콘텐츠 편집', keywords : ['자기주도성', '논리력'], rating : 2.8, participation: 1 },
-
+    {
+      id: 1,
+      name: '이명준',
+      mainRole: 'PM',
+      subRole: '프론트엔드 개발',
+      keywords: ['창의력', '실행력'],
+      rating: 4.8,
+      participation: 2,
+    },
+    {
+      id: 2,
+      name: '홍수아',
+      mainRole: '백엔드 개발',
+      subRole: '서버 구축',
+      keywords: ['공감력', '기획력'],
+      rating: 4.3,
+      participation: 3,
+    },
+    {
+      id: 3,
+      name: '임수정',
+      mainRole: '테스트 및 QA',
+      subRole: 'DB 및 API 관리',
+      keywords: ['친절함', '열정'],
+      rating: 3.9,
+      participation: 1,
+    },
+    {
+      id: 23,
+      name: '신유찬',
+      mainRole: '프론트엔드 구현',
+      subRole: '콘텐츠 편집',
+      keywords: ['자기주도성', '논리력'],
+      rating: 2.8,
+      participation: 1,
+    },
   ];
 
- 
   return (
     <div className="team-page-container">
       {/* 상단 헤더 */}
@@ -36,24 +66,27 @@ function TeamPage() {
       />
 
       <div className="teampage-main">
-        <h1>🤝 나의 <span className="highlight">팀 프로젝트</span> 공간</h1>
+        <h1>
+          🤝 나의 <span className="highlight">팀 프로젝트</span> 공간
+        </h1>
         <p>진행 중인 팀 프로젝트 정보를 한눈에 확인하고 팀원들과 협업해보세요</p>
-        </div>
+      </div>
 
       <div className="team-page-content">
-        
         {/* 팀원 목록 */}
         <section className="team-section">
           <h2>👤 팀원 소개</h2>
           <ul className="member-list">
-            {teamMembers.map(member => (
+            {teamMembers.map((member) => (
               <li key={member.id} className="member-card">
                 <strong>{member.name}</strong>
                 <p>희망 역할군 : {member.mainRole}</p>
                 <p>보조 가능 역할군 : {member.subRole}</p>
                 <p>키워드 : {member.keywords.join(', ')}</p>
                 <p>참여 이력 : {member.participation}회</p>
-                <p><strong>평점 :</strong> ⭐ {member.rating}</p>
+                <p>
+                  <strong>평점 :</strong> ⭐ {member.rating}
+                </p>
               </li>
             ))}
           </ul>

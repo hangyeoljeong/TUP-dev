@@ -27,7 +27,7 @@ body {
 .logo {
   font-size: 2.3rem;
   font-weight: 900;
-  color: #FF6B35;
+  color: #ff6b35;
   letter-spacing: 0.1em;
 }
 
@@ -65,7 +65,6 @@ body {
   animation: fadeSlideUp 0.9s ease-out;
   animation-delay: 0.3s;
   animation-fill-mode: both;
- 
 }
 
 .mypage-main p {
@@ -73,7 +72,6 @@ body {
   animation-delay: 0.5s;
   animation-fill-mode: both;
 }
-
 
 .mypage-tabs {
   margin-top: 0.5rem;
@@ -123,7 +121,6 @@ body {
 
 .mypage-container {
   display: flex;
-
 }
 
 .sidebar {
@@ -207,7 +204,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom:1rem;
+  margin-bottom: 1rem;
 }
 .mypage-box {
   background-color: #fff;

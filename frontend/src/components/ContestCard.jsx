@@ -32,13 +32,15 @@ const ContestCard = ({ contest, onClick }) => {
       />
 
       {/* 텍스트 영역 */}
-      <div style={{
-        padding: '1rem',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        flex: 1
-      }}>
+      <div
+        style={{
+          padding: '1rem',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          flex: 1,
+        }}
+      >
         <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>{title}</h4>
         <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem', color: '#555' }}>
           마감: {deadline} ({calculateDday(deadline)})

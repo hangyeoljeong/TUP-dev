@@ -4,13 +4,15 @@ import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 
 const FeedbackButtons = ({ teamIndex, feedbacks, onFeedback }) => {
   return (
-    <div style={{
-      display: 'flex',
-      gap: '0.75rem',
-      marginTop: '1rem',
-      alignItems: 'center',
-      paddingLeft: '1.5rem'
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        gap: '0.75rem',
+        marginTop: '1rem',
+        alignItems: 'center',
+        paddingLeft: '1.5rem',
+      }}
+    >
       <span style={{ fontWeight: 500 }}>피드백:</span>
 
       <button
@@ -25,8 +27,14 @@ const FeedbackButtons = ({ teamIndex, feedbacks, onFeedback }) => {
           fontSize: '1.2rem',
           transition: 'all 0.2s ease',
         }}
-        onMouseOver={(e) => e.currentTarget.style.backgroundColor = feedbacks[teamIndex] === true ? '#FF6B35' : '#f2f2f2'}
-        onMouseOut={(e) => e.currentTarget.style.backgroundColor = feedbacks[teamIndex] === true ? '#FF6B35' : '#fff'}
+        onMouseOver={(e) =>
+          (e.currentTarget.style.backgroundColor =
+            feedbacks[teamIndex] === true ? '#FF6B35' : '#f2f2f2')
+        }
+        onMouseOut={(e) =>
+          (e.currentTarget.style.backgroundColor =
+            feedbacks[teamIndex] === true ? '#FF6B35' : '#fff')
+        }
       >
         <ThumbUpIcon fontSize="inherit" />
       </button>
@@ -43,8 +51,14 @@ const FeedbackButtons = ({ teamIndex, feedbacks, onFeedback }) => {
           fontSize: '1.2rem',
           transition: 'all 0.2s ease',
         }}
-        onMouseOver={(e) => e.currentTarget.style.backgroundColor = feedbacks[teamIndex] === false ? '#FF6B35' : '#f2f2f2'}
-        onMouseOut={(e) => e.currentTarget.style.backgroundColor = feedbacks[teamIndex] === false ? '#FF6B35' : '#fff'}
+        onMouseOver={(e) =>
+          (e.currentTarget.style.backgroundColor =
+            feedbacks[teamIndex] === false ? '#FF6B35' : '#f2f2f2')
+        }
+        onMouseOut={(e) =>
+          (e.currentTarget.style.backgroundColor =
+            feedbacks[teamIndex] === false ? '#FF6B35' : '#fff')
+        }
       >
         <ThumbDownIcon fontSize="inherit" />
       </button>

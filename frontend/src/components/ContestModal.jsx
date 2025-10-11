@@ -1,18 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
-import Modal from "@mui/material/Modal";
-import CloseIcon from "@mui/icons-material/Close";
-import SkillManager from "./SkillManager";
-import TeamList from "./TeamList";
-import FeedbackModal from "./FeedbackModal";
-import { calculateDday } from "../utils/dateUtils";
-import GroupsIcon from "@mui/icons-material/Groups";
-import { toast } from "react-toastify";
-import {
-  saveUserInput,
-  applyTeamup,
-  getMatchedTeams,
-  applyTeamRematch,
-} from "../api/teamup1"; // API 래퍼
+import React, { useState, useEffect, useRef } from 'react';
+import Modal from '@mui/material/Modal';
+import CloseIcon from '@mui/icons-material/Close';
+import SkillManager from './SkillManager';
+import TeamList from './TeamList';
+import FeedbackModal from './FeedbackModal';
+import { calculateDday } from '../utils/dateUtils';
+import GroupsIcon from '@mui/icons-material/Groups';
+import { toast } from 'react-toastify';
+import { saveUserInput, applyTeamup, getMatchedTeams, applyTeamRematch } from '../api/teamup1'; // API 래퍼
 
 const ContestModal = ({
   open,
@@ -26,8 +21,8 @@ const ContestModal = ({
   onFeedback,
   currentUser,
 }) => {
-  const [mainRole, setMainRole] = useState("");
-  const [subRole, setSubRole] = useState("");
+  const [mainRole, setMainRole] = useState('');
+  const [subRole, setSubRole] = useState('');
   const [matched, setMatched] = useState([]);
   const [rawTeams, setRawTeams] = useState([]); // ✅ 팀 목록 상태 정의
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -40,13 +35,13 @@ const ContestModal = ({
   const [isTeamroomHovered, setIsTeamroomHovered] = useState(false);
 
   const scrollToBoth = () => {
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    queueRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    queueRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   useEffect(() => {
     const alreadySaved = users.some((u) => u.id === currentUser?.id);
     if (open && !hasShownToast.current && !alreadySaved) {
-      toast.info("공모전 입력란(역량 키워드, 역할군 등)을 먼저 작성해주세요!");
+      toast.info('공모전 입력란(역량 키워드, 역할군 등)을 먼저 작성해주세요!');
       hasShownToast.current = true;
     }
   }, [open, users, currentUser]);
@@ -75,7 +70,7 @@ const ContestModal = ({
               };
             });
 
-setMatched(list.map((t) => hydrate(t.members)));
+          setMatched(list.map((t) => hydrate(t.members)));
         }
       } catch (e) {
         console.error(e);
@@ -83,33 +78,25 @@ setMatched(list.map((t) => hydrate(t.members)));
     })();
   }, [open, selectedContest?.id]);
 
-  const isMatched = matched.some((team) =>
-    team.some((member) => member.id === currentUser?.id)
-  );
+  const isMatched = matched.some((team) => team.some((member) => member.id === currentUser?.id));
 
   // ✅ 재매칭 함수
   const handleRematch = async () => {
-    const myTeam = matched.find((team) =>
-      team.some((member) => member.id === currentUser?.id)
-    );
+    const myTeam = matched.find((team) => team.some((member) => member.id === currentUser?.id));
     if (!myTeam) return;
 
-    const agreedUsers = myTeam.filter(
-      (member) => feedbacks[member.id] === "👍"
-    );
+    const agreedUsers = myTeam.filter((member) => feedbacks[member.id] === '👍');
 
-    const rawMyTeam = rawTeams.find((t) =>
-      (t.members || []).some((m) => m.id === currentUser?.id)
-    );
+    const rawMyTeam = rawTeams.find((t) => (t.members || []).some((m) => m.id === currentUser?.id));
     const teamId = rawMyTeam?.id;
 
     if (agreedUsers.length < 2) {
-      toast.warning("동의한 인원이 너무 적어요! 재매칭이 어려워요.");
+      toast.warning('동의한 인원이 너무 적어요! 재매칭이 어려워요.');
       return;
     }
 
     if (!selectedContest?.id || !teamId) {
-      toast.error("재매칭 정보를 불러올 수 없습니다.");
+      toast.error('재매칭 정보를 불러올 수 없습니다.');
       return;
     }
 
@@ -121,13 +108,13 @@ setMatched(list.map((t) => hydrate(t.members)));
       });
       if (res?.success && Array.isArray(res.teams)) {
         setMatched(res.teams.map((t) => t.members || []));
-        toast.success("재매칭 완료!");
+        toast.success('재매칭 완료!');
       } else {
-        toast.info("재매칭을 수행하지 못했어요.");
+        toast.info('재매칭을 수행하지 못했어요.');
       }
     } catch (e) {
       console.error(e);
-      toast.error(e.message || "재매칭 중 오류가 발생했습니다.");
+      toast.error(e.message || '재매칭 중 오류가 발생했습니다.');
     }
   };
   // ✅ runRematch 함수 정의
@@ -136,7 +123,7 @@ setMatched(list.map((t) => hydrate(t.members)));
       const res = await applyTeamRematch({ contestId, agreedUserIds, teamId });
       return res;
     } catch (err) {
-      console.error("재매칭 실패:", err);
+      console.error('재매칭 실패:', err);
       throw err;
     }
   };
@@ -145,40 +132,36 @@ setMatched(list.map((t) => hydrate(t.members)));
 
   // ✅ 비동의 인원 대기열로 이동
   const handleRequeue = () => {
-    const myTeam = matched.find((team) =>
-      team.some((member) => member.id === currentUser?.id)
-    );
+    const myTeam = matched.find((team) => team.some((member) => member.id === currentUser?.id));
     if (!myTeam) return;
 
-    const disagreedUsers = myTeam.filter(
-      (member) => feedbacks[member.id] === "👎"
-    );
+    const disagreedUsers = myTeam.filter((member) => feedbacks[member.id] === '👎');
 
     if (disagreedUsers.length === 0) {
-      toast.info("비동의자가 없습니다.");
+      toast.info('비동의자가 없습니다.');
       return;
     }
   };
 
   const handleSave = async () => {
     if (isMatched) {
-      toast.warning("이미 팀에 속해 있어 수정할 수 없습니다.");
+      toast.warning('이미 팀에 속해 있어 수정할 수 없습니다.');
       return;
     }
 
     if (userSkills.length === 0 || !mainRole.trim()) {
-      toast.warning("역량 키워드와 희망 역할군을 모두 입력해주세요.");
+      toast.warning('역량 키워드와 희망 역할군을 모두 입력해주세요.');
       return;
     }
 
     if (!currentUser || !currentUser.id) {
-      toast.error("현재 사용자 정보가 없습니다.");
+      toast.error('현재 사용자 정보가 없습니다.');
       return;
     }
 
     const newUser = {
       id: currentUser.id,
-      name: currentUser.name || "나",
+      name: currentUser.name || '나',
       skills: userSkills,
       keywords: userSkills,
       mainRole,
@@ -202,35 +185,33 @@ setMatched(list.map((t) => hydrate(t.members)));
       if (res?.message) {
         // ⭕️ UI 유지 위해 로컬 큐도 업데이트(백엔드 연동 전 단계에서 임시)
         if (alreadyInQueue) {
-          setUsers((prev) =>
-            prev.map((u) => (u.id === newUser.id ? newUser : u))
-          );
-          toast.info("기존 정보를 수정했어요.");
+          setUsers((prev) => prev.map((u) => (u.id === newUser.id ? newUser : u)));
+          toast.info('기존 정보를 수정했어요.');
         } else {
           setUsers((prev) => [...prev, newUser]);
-          toast.success("저장 완료! 대기열에 추가되었습니다.");
+          toast.success('저장 완료! 대기열에 추가되었습니다.');
         }
       } else {
-        toast.error("등록에 실패했습니다.");
+        toast.error('등록에 실패했습니다.');
       }
     } catch (e) {
       console.error(e);
-      toast.error(e.message || "네트워크 오류");
+      toast.error(e.message || '네트워크 오류');
     }
   };
 
   const matchTeam = async () => {
     // 기존 로컬 대기열 체크는 유지
     if (users.length < 4) {
-      toast.info("대기 인원이 부족해요! 팀업을 기다려주세요 😊");
+      toast.info('대기 인원이 부족해요! 팀업을 기다려주세요 😊');
       return;
     }
 
-    console.log("✅ currentUser:", currentUser);       // 👉 현재 유저 객체 확인
-   console.log("✅ currentUser.id:", currentUser?.id); // 👉 id 값이 실제로 존재하는지 확인
+    console.log('✅ currentUser:', currentUser); // 👉 현재 유저 객체 확인
+    console.log('✅ currentUser.id:', currentUser?.id); // 👉 id 값이 실제로 존재하는지 확인
 
     if (!currentUser?.id) {
-      toast.error("현재 사용자 정보가 없습니다.");
+      toast.error('현재 사용자 정보가 없습니다.');
       return;
     }
     try {
@@ -257,45 +238,42 @@ setMatched(list.map((t) => hydrate(t.members)));
       }
     } catch (e) {
       console.error(e);
-      toast.error(e.message || "매칭 중 오류가 발생했습니다.");
+      toast.error(e.message || '매칭 중 오류가 발생했습니다.');
     }
   };
 
   if (!selectedContest) return null;
 
-  const { title, image, category, deadline, start, organizer } =
-    selectedContest;
+  const { title, image, category, deadline, start, organizer } = selectedContest;
 
-  const myTeam = matched.find((team) =>
-    team.some((member) => member.id === currentUser?.id)
-  );
+  const myTeam = matched.find((team) => team.some((member) => member.id === currentUser?.id));
 
   return (
     <>
       <Modal open={open} onClose={onClose}>
         <div
           style={{
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "white",
-            display: "flex",
-            flexDirection: "column",
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'white',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           <div
             style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              padding: "1rem",
+              display: 'flex',
+              justifyContent: 'flex-end',
+              padding: '1rem',
             }}
           >
             <button
               onClick={onClose}
               style={{
-                background: "none",
-                border: "none",
-                fontSize: "1.5rem",
-                cursor: "pointer",
+                background: 'none',
+                border: 'none',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
               }}
             >
               <CloseIcon />
@@ -304,21 +282,21 @@ setMatched(list.map((t) => hydrate(t.members)));
 
           <div
             style={{
-              display: "flex",
+              display: 'flex',
               flex: 1,
-              overflow: "hidden",
-              padding: "0 2rem 2rem 2rem",
-              gap: "2rem",
+              overflow: 'hidden',
+              padding: '0 2rem 2rem 2rem',
+              gap: '2rem',
             }}
           >
-            <div style={{ width: "40%", overflowY: "auto" }}>
+            <div style={{ width: '40%', overflowY: 'auto' }}>
               <img
                 src={image}
                 alt="공모전"
                 style={{
-                  width: "100%",
-                  borderRadius: "8px",
-                  marginBottom: "1rem",
+                  width: '100%',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
                 }}
               />
               <h2
@@ -331,9 +309,9 @@ setMatched(list.map((t) => hydrate(t.members)));
               </h2>
               <div
                 style={{
-                  background: "#F8F9FA",
-                  padding: "1rem",
-                  borderRadius: "8px",
+                  background: '#F8F9FA',
+                  padding: '1rem',
+                  borderRadius: '8px',
                 }}
               >
                 <p>• 주최: {organizer}</p>
@@ -344,7 +322,7 @@ setMatched(list.map((t) => hydrate(t.members)));
                 <p>• 분야: {category}</p>
               </div>
 
-              <div ref={formRef} style={{ marginTop: "1rem" }}>
+              <div ref={formRef} style={{ marginTop: '1rem' }}>
                 <SkillManager
                   skills={userSkills}
                   setSkills={setUserSkills}
@@ -357,9 +335,9 @@ setMatched(list.map((t) => hydrate(t.members)));
                 {isMatched && (
                   <p
                     style={{
-                      color: "#999",
-                      fontSize: "0.9rem",
-                      marginTop: "0.5rem",
+                      color: '#999',
+                      fontSize: '0.9rem',
+                      marginTop: '0.5rem',
                     }}
                   >
                     ⚠ 팀에 속한 상태에서는 입력을 수정할 수 없습니다.
@@ -371,32 +349,27 @@ setMatched(list.map((t) => hydrate(t.members)));
                   onMouseEnter={() => setIsHovered(true)}
                   onMouseLeave={() => setIsHovered(false)}
                   style={{
-                    width: "100%",
-                    padding: "1rem",
+                    width: '100%',
+                    padding: '1rem',
                     backgroundColor: isMatched
-                      ? "#ccc"
+                      ? '#ccc'
                       : isHovered
-                      ? "#ff824e" // hover 시 밝은 오렌지
-                      : "#FF6B35",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "10px",
-                    fontSize: "1.1rem",
+                        ? '#ff824e' // hover 시 밝은 오렌지
+                        : '#FF6B35',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontSize: '1.1rem',
                     fontWeight: 700,
-                    marginTop: "1.5rem",
+                    marginTop: '1.5rem',
                     fontFamily: "'Montserrat', 'Noto Sans KR'",
-                    cursor: isMatched ? "not-allowed" : "pointer",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    boxShadow: isMatched
-                      ? "none"
-                      : "0 2px 6px rgba(0, 0, 0, 0.15)",
-                    transition: "all 0.2s ease-in-out",
-                    transform:
-                      isHovered && !isMatched
-                        ? "translateY(-1px)"
-                        : "translateY(0)",
+                    cursor: isMatched ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    boxShadow: isMatched ? 'none' : '0 2px 6px rgba(0, 0, 0, 0.15)',
+                    transition: 'all 0.2s ease-in-out',
+                    transform: isHovered && !isMatched ? 'translateY(-1px)' : 'translateY(0)',
                   }}
                 >
                   Save!
@@ -404,42 +377,42 @@ setMatched(list.map((t) => hydrate(t.members)));
               </div>
             </div>
 
-            <div style={{ width: "60%", overflowY: "auto" }}>
+            <div style={{ width: '60%', overflowY: 'auto' }}>
               <h2
                 style={{
-                  color: "#FF6B35",
+                  color: '#FF6B35',
                   fontFamily: "'Montserrat', 'Noto Sans KR'",
                   fontWeight: 800,
                 }}
               >
-                <GroupsIcon style={{ marginRight: "0.5rem" }} />
+                <GroupsIcon style={{ marginRight: '0.5rem' }} />
                 함께하자 팀으로!
               </h2>
 
               <div
                 ref={queueRef}
                 style={{
-                  listStyle: "none",
+                  listStyle: 'none',
                   padding: 0,
-                  maxHeight: "200px",
-                  overflowY: "auto",
-                  marginBottom: "1rem",
-                  background: "#FFF9F7",
-                  borderRadius: "8px",
-                  paddingInline: "1rem",
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  marginBottom: '1rem',
+                  background: '#FFF9F7',
+                  borderRadius: '8px',
+                  paddingInline: '1rem',
                 }}
               >
                 {users.map((user) => (
                   <li
                     key={user.id}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      padding: "0.8rem 0",
-                      borderBottom: "1px solid #eee",
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '0.8rem 0',
+                      borderBottom: '1px solid #eee',
                       fontWeight: 500,
-                      fontSize: "1rem",
-                      color: "#333",
+                      fontSize: '1rem',
+                      color: '#333',
                     }}
                   >
                     👤 {user.name}
@@ -450,17 +423,17 @@ setMatched(list.map((t) => hydrate(t.members)));
               {myTeam ? (
                 <p
                   style={{
-                    maxWidth: "100%",
-                    width: "100%",
-                    padding: "1rem",
-                    background: "#FFF3ED",
-                    color: "#FF6B35",
-                    borderRadius: "8px",
-                    textAlign: "center",
+                    maxWidth: '100%',
+                    width: '100%',
+                    padding: '1rem',
+                    background: '#FFF3ED',
+                    color: '#FF6B35',
+                    borderRadius: '8px',
+                    textAlign: 'center',
                     fontWeight: 600,
-                    fontSize: "1rem",
-                    border: "1px solid #FF6B35",
-                    boxSizing: "border-box", // ✅ 패딩 포함해서 너비 계산
+                    fontSize: '1rem',
+                    border: '1px solid #FF6B35',
+                    boxSizing: 'border-box', // ✅ 패딩 포함해서 너비 계산
                   }}
                 >
                   이미 팀에 속해 있어요! 결과를 기다려주세요 😊
@@ -471,34 +444,32 @@ setMatched(list.map((t) => hydrate(t.members)));
                   onMouseEnter={() => setIsTeamHovered(true)}
                   onMouseLeave={() => setIsTeamHovered(false)}
                   style={{
-                    width: "100%",
-                    padding: "1rem",
-                    backgroundColor: isTeamHovered ? "#ff824e" : "#FF6B35", // hover 시 밝은 주황
-                    color: "white",
-                    border: "none",
-                    borderRadius: "10px",
-                    cursor: "pointer",
-                    fontSize: "1.1rem",
+                    width: '100%',
+                    padding: '1rem',
+                    backgroundColor: isTeamHovered ? '#ff824e' : '#FF6B35', // hover 시 밝은 주황
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '1.1rem',
                     fontWeight: 700,
-                    marginBottom: "1rem",
+                    marginBottom: '1rem',
                     fontFamily: "'Montserrat', 'Noto Sans KR'",
-                    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)",
-                    transition: "all 0.2s ease-in-out",
-                    transform: isTeamHovered
-                      ? "translateY(-1px)"
-                      : "translateY(0)",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
+                    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
+                    transition: 'all 0.2s ease-in-out',
+                    transform: isTeamHovered ? 'translateY(-1px)' : 'translateY(0)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
                   }}
                 >
-                  <GroupsIcon style={{ marginRight: "0.5rem" }} />
+                  <GroupsIcon style={{ marginRight: '0.5rem' }} />
                   TEAM UP!
                 </button>
               )}
 
               {matched.length > 0 && (
-                <div style={{ marginTop: "1rem" }}>
+                <div style={{ marginTop: '1rem' }}>
                   <TeamList
                     matched={matched}
                     feedbacks={feedbacks}
@@ -507,11 +478,11 @@ setMatched(list.map((t) => hydrate(t.members)));
                   />
                   <div
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "1rem",
-                      marginTop: "1.5rem",
-                      paddingBottom: "1rem",
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: '1rem',
+                      marginTop: '1.5rem',
+                      paddingBottom: '1rem',
                     }}
                   >
                     <button
@@ -520,25 +491,20 @@ setMatched(list.map((t) => hydrate(t.members)));
                       onClick={() => setIsFeedbackModalOpen(true)}
                       style={{
                         flex: 1,
-                        padding: "0.9rem", // 기존 크기 유지
-                        backgroundColor: isFeedbackHovered
-                          ? "#ff824e"
-                          : "#FF6B35",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "8px",
-                        fontSize: "1rem",
+                        padding: '0.9rem', // 기존 크기 유지
+                        backgroundColor: isFeedbackHovered ? '#ff824e' : '#FF6B35',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '1rem',
                         fontWeight: 600,
                         fontFamily: "'Montserrat', 'Noto Sans KR'",
-                        cursor: "pointer",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        transition:
-                          "background-color 0.2s ease, transform 0.2s ease",
-                        transform: isFeedbackHovered
-                          ? "translateY(-1px)"
-                          : "translateY(0)",
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        transition: 'background-color 0.2s ease, transform 0.2s ease',
+                        transform: isFeedbackHovered ? 'translateY(-1px)' : 'translateY(0)',
                       }}
                     >
                       피드백 결과 확인하기
@@ -546,28 +512,23 @@ setMatched(list.map((t) => hydrate(t.members)));
                     <button
                       onMouseEnter={() => setIsTeamroomHovered(true)}
                       onMouseLeave={() => setIsTeamroomHovered(false)}
-                      onClick={() => window.open("/TeamPage", "_blank")}
+                      onClick={() => window.open('/TeamPage', '_blank')}
                       style={{
                         flex: 1,
-                        padding: "0.9rem", // 기존 세로 크기 유지
-                        backgroundColor: isTeamroomHovered
-                          ? "#ff824e"
-                          : "#FF6B35",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "8px",
-                        fontSize: "1rem",
+                        padding: '0.9rem', // 기존 세로 크기 유지
+                        backgroundColor: isTeamroomHovered ? '#ff824e' : '#FF6B35',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '1rem',
                         fontWeight: 600,
                         fontFamily: "'Montserrat', 'Noto Sans KR'",
-                        cursor: "pointer",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        transition:
-                          "background-color 0.2s ease, transform 0.2s ease",
-                        transform: isTeamroomHovered
-                          ? "translateY(-1px)"
-                          : "translateY(0)",
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        transition: 'background-color 0.2s ease, transform 0.2s ease',
+                        transform: isTeamroomHovered ? 'translateY(-1px)' : 'translateY(0)',
                       }}
                     >
                       팀룸으로 이동하기

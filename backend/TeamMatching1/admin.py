@@ -1,5 +1,11 @@
 from django.contrib import admin
-from .models import WaitingUser, Team, TeamMember, Feedback
+from .models import User, WaitingUser, Team, TeamMember, Feedback
+
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'main_role', 'sub_role', 'skills', 'keywords', 'rating', 'participation', 'has_reward')
+    search_fields = ('name', 'main_role', 'sub_role', 'skills')
+    list_filter = ('has_reward',)
 
 @admin.register(WaitingUser)
 class WaitingUserAdmin(admin.ModelAdmin):

@@ -1,21 +1,45 @@
 import React from 'react';
 
 const allSkills = [
-  "리더십", "기획력", "소통", "협업", "꼼꼼함",
-  "책임감", "친절함", "창의력", "분석력", "논리력",
-  "실행력", "시간관리", "문제해결", "열정", "끈기",
-  "적응력", "발표력", "공감력", "전략적 사고", "자기주도성"
+  '리더십',
+  '기획력',
+  '소통',
+  '협업',
+  '꼼꼼함',
+  '책임감',
+  '친절함',
+  '창의력',
+  '분석력',
+  '논리력',
+  '실행력',
+  '시간관리',
+  '문제해결',
+  '열정',
+  '끈기',
+  '적응력',
+  '발표력',
+  '공감력',
+  '전략적 사고',
+  '자기주도성',
 ];
 
-const SkillManager = ({ skills, setSkills, mainRole, setMainRole, subRole, setSubRole, disabled = false }) => {
+const SkillManager = ({
+  skills,
+  setSkills,
+  mainRole,
+  setMainRole,
+  subRole,
+  setSubRole,
+  disabled = false,
+}) => {
   const toggleSkill = (skill) => {
     if (disabled) return; // 🔒 버튼 클릭 막기
 
     if (skills.includes(skill)) {
-      setSkills(skills.filter(s => s !== skill));
+      setSkills(skills.filter((s) => s !== skill));
     } else {
       if (skills.length >= 3) {
-        alert("역량 키워드는 최대 3개까지 선택할 수 있어요!");
+        alert('역량 키워드는 최대 3개까지 선택할 수 있어요!');
         return;
       }
       setSkills([...skills, skill]);
@@ -31,25 +55,29 @@ const SkillManager = ({ skills, setSkills, mainRole, setMainRole, subRole, setSu
         flexDirection: 'column',
         alignItems: 'flex-start',
         width: '100%',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
       }}
     >
-      <h4 style={{
-        fontFamily: "'Montserrat', 'Noto Sans KR'",
-        fontWeight: 600,
-        marginBottom: '0.5rem'
-      }}>
+      <h4
+        style={{
+          fontFamily: "'Montserrat', 'Noto Sans KR'",
+          fontWeight: 600,
+          marginBottom: '0.5rem',
+        }}
+      >
         나의 역량 키워드 (최대 3개 선택)
       </h4>
 
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '0.5rem',
-        marginBottom: '1.5rem',
-        width: '100%'
-      }}>
-        {allSkills.map(skill => (
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+          marginBottom: '1.5rem',
+          width: '100%',
+        }}
+      >
+        {allSkills.map((skill) => (
           <button
             key={skill}
             onClick={() => toggleSkill(skill)}
@@ -64,7 +92,7 @@ const SkillManager = ({ skills, setSkills, mainRole, setMainRole, subRole, setSu
               fontSize: '0.9rem',
               transition: 'all 0.2s',
               opacity: disabled ? 0.6 : 1,
-              fontFamily: "'Noto Sans KR', 'Montserrat'"
+              fontFamily: "'Noto Sans KR', 'Montserrat'",
             }}
           >
             {skill}
@@ -72,12 +100,14 @@ const SkillManager = ({ skills, setSkills, mainRole, setMainRole, subRole, setSu
         ))}
       </div>
 
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.2rem',
-        width: '100%'
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1.2rem',
+          width: '100%',
+        }}
+      >
         <div>
           <label style={{ fontWeight: 600 }}>희망 역할군</label>
           <input
@@ -94,7 +124,7 @@ const SkillManager = ({ skills, setSkills, mainRole, setMainRole, subRole, setSu
               borderRadius: '6px',
               fontSize: '0.95rem',
               boxSizing: 'border-box',
-              backgroundColor: disabled ? '#f5f5f5' : 'white'
+              backgroundColor: disabled ? '#f5f5f5' : 'white',
             }}
           />
         </div>
@@ -115,7 +145,7 @@ const SkillManager = ({ skills, setSkills, mainRole, setMainRole, subRole, setSu
               borderRadius: '6px',
               fontSize: '0.95rem',
               boxSizing: 'border-box',
-              backgroundColor: disabled ? '#f5f5f5' : 'white'
+              backgroundColor: disabled ? '#f5f5f5' : 'white',
             }}
           />
         </div>

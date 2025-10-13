@@ -91,20 +91,32 @@ function TeamMatching1() {
   const [feedbacks, setFeedbacks] = useState({});
   const [users, setUsers] = useState([]); // ✅ 대기열 (DB)
   const [loading, setLoading] = useState(true);
+  const [waitingUsers, setWaitingUsers] = useState([]);
 
   // 1) 대기열 50명 로드
   useEffect(() => {
-    (async () => {
-      try {
-        const data = await getWaitingUsers();
-        setUsers(normalizeUsers(data)); // ← 필요 필드만
-      } catch (e) {
-        console.error('대기열 불러오기 실패:', e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const fetchWaitingUsers = async () => {
+    try {
+      const res = await getWaitingUsers();
+      console.log('✅ 대기열 응답:', res);
+
+      const data = res.data?.waiting_users || res.waiting_users || [];
+      console.log('📦 정제된 데이터:', data);
+
+      setWaitingUsers(data);
+      setUsers(data);
+    } catch (error) {
+      console.error('❌ 대기열 불러오기 실패:', error);
+    }
+  };
+
+  fetchWaitingUsers();
+}, []);
+
+// ✅ 상태 변경 후 렌더링되는지 추적
+  useEffect(() => {
+    console.log('🎯 상태 반영됨 waitingUsers:', waitingUsers.length);
+  }, [waitingUsers]);
 
   // 2) 매칭된 팀 목록 로드
   useEffect(() => {

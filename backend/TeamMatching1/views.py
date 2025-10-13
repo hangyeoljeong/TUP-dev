@@ -1,3 +1,4 @@
+import random
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
@@ -125,12 +126,12 @@ def apply_teamup(request):
                 members.append({
                     "id": u.id,
                     "name": u.name,
-                    "mainRole": u.main_role,
-                    "subRole": u.sub_role,
-                    "keywords": u.keywords,
+                    "mainRole": waiting_info.main_role if waiting_info and waiting_info.main_role else u.main_role,
+                    "subRole": waiting_info.sub_role if waiting_info and waiting_info.sub_role else u.sub_role,
+                    "keywords": waiting_info.keywords if waiting_info and waiting_info.keywords else u.keywords,
                     "skills": waiting_info.skills if waiting_info else [],
                     "rating": u.rating,
-                    "participation": u.participation,
+                     "participation": u.participation,
                 })
             except User.DoesNotExist:
                 members.append({"id": tm.user_id, "name": "알 수 없음"})
@@ -299,18 +300,59 @@ def submit_feedback(request):
 # ✅ 추가할 코드 (TeamMatching1/views.py 맨 아래에 넣어줘)
 
 
+@csrf_exempt
 @api_view(['GET'])
 def get_waiting_users(request):
-    users = User.objects.all()
-    result = []
-    for u in users:
-        result.append({
-            "id": u.id,
-            "name": u.name,
-            "mainRole": u.main_role,
-            "subRole": u.sub_role,
-            "keywords": u.keywords,
-            "rating": u.rating,
-            "participation": u.participation,
-        })
-    return Response(result)
+    """
+    WaitingUser 테이블의 현재 사용자 50명을 반환 (없을 경우 User에서 새로 생성)
+    """
+    waiting_users = list(WaitingUser.objects.all())
+
+    # ✅ 대기열이 비어있다면, User에서 생성
+    if not waiting_users:
+        users = list(User.objects.all())
+        if not users:
+            return Response({"waiting_users": []})
+        random_users = random.sample(users, min(50, len(users)))
+
+        waiting_instances = []
+        for u in random_users:
+            waiting_instances.append(
+                WaitingUser(
+                    user_id=u.id,
+                    main_role=u.main_role,
+                    sub_role=u.sub_role,
+                    skills=u.skills,
+                    keywords=u.keywords,
+                    has_reward=False,
+                )
+            )
+        WaitingUser.objects.bulk_create(waiting_instances)
+        waiting_users = WaitingUser.objects.all()
+
+    # ✅ 응답 데이터 구성 (User 정보 포함)
+    data = []
+    for w in waiting_users:
+        try:
+            u = User.objects.get(id=w.user_id)
+            data.append({
+                "id": u.id,
+                "name": u.name,
+                "main_role": w.main_role or u.main_role,
+                "sub_role": w.sub_role or u.sub_role,
+                "keywords": w.keywords or u.keywords,
+                "rating": u.rating,
+                "participation": u.participation,
+            })
+        except User.DoesNotExist:
+            data.append({
+                "id": w.user_id,
+                "name": f"User {w.user_id}",
+                "main_role": w.main_role,
+                "sub_role": w.sub_role,
+                "keywords": [],
+                "rating": 0,
+                "participation": 0,
+            })
+
+    return Response({"waiting_users": data})

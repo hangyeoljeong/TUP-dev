@@ -18,4 +18,8 @@ urlpatterns = [
 
     # 공용 API (ping/version 등)
     path("api/", include("api.urls")),
+    
+    # ✅ TeamMatching1 관련 엔드포인트
+    path("api/team1/", include("TeamMatching1.urls")),
+    path("api/team-matching1/", include("TeamMatching1.urls")),
 ]

@@ -7,7 +7,7 @@ import FeedbackModal from './FeedbackModal';
 import { calculateDday } from '../utils/dateUtils';
 import GroupsIcon from '@mui/icons-material/Groups';
 import { toast } from 'react-toastify';
-import { saveUserInput, applyTeamup, getMatchedTeams, applyTeamRematch } from '../api/teamup1'; // API 래퍼
+import { saveUserInput, getWaitingUsers, applyTeamup, getMatchedTeams, applyTeamRematch } from '../api/teamup1'; // API 래퍼
 
 const ContestModal = ({
   open,
@@ -402,8 +402,9 @@ const ContestModal = ({
                   paddingInline: '1rem',
                 }}
               >
-                {users.map((user) => (
-                  <li
+                {users.length > 0 ? (
+                  users.map((user) => (
+                    <li
                     key={user.id}
                     style={{
                       display: 'flex',
@@ -417,7 +418,19 @@ const ContestModal = ({
                   >
                     👤 {user.name}
                   </li>
-                ))}
+                ))
+              ) : (
+                <p
+                  style={{
+                    textAlign: 'center',
+                    color: '#888',
+                    padding: '1rem 0',
+                    fontSize: '0.95rem',
+                  }}
+                >
+                  🔄 대기열 데이터를 불러오는 중이거나, 현재 표시할 유저가 없습니다.
+                </p>
+              )}
               </div>
               {/* 팀업 버튼 또는 안내 메시지 */}
               {myTeam ? (

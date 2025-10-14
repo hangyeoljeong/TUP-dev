@@ -304,37 +304,45 @@ def submit_feedback(request):
 @api_view(['GET'])
 def get_waiting_users(request):
     """
-    WaitingUser 테이블의 현재 사용자 50명을 반환 (없을 경우 User에서 새로 생성)
+    WaitingUser 테이블의 현재 사용자 50명을 반환
+    - name이 없는 유저는 제외
+    - 50명 미만이면 User 테이블에서 랜덤 보충
     """
     waiting_users = list(WaitingUser.objects.all())
 
-    # ✅ 대기열이 비어있다면, User에서 생성
+    # ✅ 대기열이 비어있으면 User 테이블에서 생성
     if not waiting_users:
-        users = list(User.objects.all())
+        users = list(User.objects.exclude(name__isnull=True)
+                                  .exclude(name__exact="")
+                                  .exclude(name__icontains="undefined"))
         if not users:
             return Response({"waiting_users": []})
-        random_users = random.sample(users, min(50, len(users)))
 
-        waiting_instances = []
-        for u in random_users:
-            waiting_instances.append(
-                WaitingUser(
-                    user_id=u.id,
-                    main_role=u.main_role,
-                    sub_role=u.sub_role,
-                    skills=u.skills,
-                    keywords=u.keywords,
-                    has_reward=False,
-                )
+        random_users = random.sample(users, min(50, len(users)))
+        waiting_instances = [
+            WaitingUser(
+                user_id=u.id,
+                main_role=u.main_role,
+                sub_role=u.sub_role,
+                skills=u.skills,
+                keywords=u.keywords,
+                has_reward=False,
             )
+            for u in random_users
+        ]
         WaitingUser.objects.bulk_create(waiting_instances)
         waiting_users = WaitingUser.objects.all()
 
-    # ✅ 응답 데이터 구성 (User 정보 포함)
+    # ✅ 응답 데이터 구성
     data = []
     for w in waiting_users:
         try:
             u = User.objects.get(id=w.user_id)
+
+            # ⚠️ name이 비어있으면 스킵 (프론트에 undefined 안 보이게)
+            if not u.name or u.name.strip() == "" or u.name.lower() == "undefined":
+                continue
+
             data.append({
                 "id": u.id,
                 "name": u.name,
@@ -345,14 +353,35 @@ def get_waiting_users(request):
                 "participation": u.participation,
             })
         except User.DoesNotExist:
-            data.append({
-                "id": w.user_id,
-                "name": f"User {w.user_id}",
-                "main_role": w.main_role,
-                "sub_role": w.sub_role,
-                "keywords": [],
-                "rating": 0,
-                "participation": 0,
-            })
+            # ❗User 테이블에서 사라진 경우
+            continue
 
-    return Response({"waiting_users": data})
+    # ✅ 항상 50명 유지 (부족하면 랜덤으로 보충)
+    if len(data) < 50:
+        all_valid_users = list(
+            User.objects.exclude(name__isnull=True)
+                        .exclude(name__exact="")
+                        .exclude(name__icontains="undefined")
+        )
+
+        # 이미 들어간 유저 제외
+        existing_ids = {d["id"] for d in data}
+        available_users = [u for u in all_valid_users if u.id not in existing_ids]
+
+        if available_users:
+            deficit = 50 - len(data)
+            extra_users = random.sample(available_users, min(deficit, len(available_users)))
+            for u in extra_users:
+                data.append({
+                    "id": u.id,
+                    "name": u.name,
+                    "main_role": u.main_role,
+                    "sub_role": u.sub_role,
+                    "keywords": u.keywords,
+                    "rating": u.rating,
+                    "participation": u.participation,
+                })
+
+    # ✅ 마지막에 중복 제거 안전망
+    unique = {item["id"]: item for item in data}.values()
+    return Response({"waiting_users": list(unique)[:50]})

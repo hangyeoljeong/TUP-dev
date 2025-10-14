@@ -67,15 +67,32 @@ const contestList = [
 ];
 
 // 백엔드 응답 → UI에서 쓰는 형태로 정규화
+// 백엔드 응답 → UI에서 쓰는 형태로 정규화
 const normalizeUsers = (rows = []) =>
   rows.map((u) => ({
-    id: Number(u.userId) || u.id, // 필수
-    name: u.name || `사용자 ${u.userId}`, // 스크린샷처럼 이름 표시
-    mainRole: u.mainRole || '입력 없음',
-    subRole: u.subRole || '입력 없음',
-    keywords: Array.isArray(u.keywords) ? u.keywords : [],
-    rating: typeof u.rating === 'number' ? u.rating : undefined, // 없으면 "별점 없음" 노출
-    participation: typeof u.participation === 'number' ? u.participation : undefined,
+    id: Number(u.userId) || u.id,
+    name: u.name || `사용자 ${u.userId}`,
+    // ✅ snake_case 대응 (main_role → mainRole)
+    mainRole: u.mainRole || u.main_role || '입력 없음',
+    subRole: u.subRole || u.sub_role || '입력 없음',
+    keywords: Array.isArray(u.keywords)
+      ? u.keywords
+      : typeof u.keywords === 'string'
+      ? u.keywords.split(',')
+      : [],
+    skills: Array.isArray(u.skills)
+      ? u.skills
+      : typeof u.skills === 'string'
+      ? u.skills.split(',')
+      : [],
+    rating:
+      typeof u.rating === 'number'
+        ? u.rating
+        : parseFloat(u.rating) || 0,
+    participation:
+      typeof u.participation === 'number'
+        ? u.participation
+        : parseInt(u.participation || 0, 10),
   }));
 
 function TeamMatching1() {
@@ -101,10 +118,10 @@ function TeamMatching1() {
       console.log('✅ 대기열 응답:', res);
 
       const data = res.data?.waiting_users || res.waiting_users || [];
-      console.log('📦 정제된 데이터:', data);
-
-      setWaitingUsers(data);
-      setUsers(data);
+      const normalized = normalizeUsers(data); // ✅ 변환 적용
+      console.log("📦 정제된 데이터:", normalized);
+      setWaitingUsers(normalized);
+      setUsers(normalized);
     } catch (error) {
       console.error('❌ 대기열 불러오기 실패:', error);
     }

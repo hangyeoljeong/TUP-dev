@@ -14,18 +14,59 @@ def save_user_input(request):
     d = request.data
     user_id = str(d.get("userId", "")).strip()
     if not user_id:
-        return Response({"message": "userId가 필요합니다."}, status=400)
+        return Response({"message": "userId가 필요합니다."}, status=400)\
+        
+    try:
+        existing_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        existing_user = None
+
+    # ✅ 기존 name을 유지하고, 새 name이 주어졌을 때만 업데이트
+    new_name = d.get("name")
+    if not new_name or new_name.strip() == "":
+        name_value = existing_user.name if existing_user else "이름없음"
+    else:
+        name_value = new_name.strip()
+
+    # ✅ rating/participation 기존 값 유지
+    rating_value = (
+        d.get("rating")
+        if d.get("rating") is not None
+        else (existing_user.rating if existing_user else 0)
+    )
+    participation_value = (
+        d.get("participation")
+        if d.get("participation") is not None
+        else (existing_user.participation if existing_user else 0)
+    )
 
     # ✅ User 테이블에는 기본 정보만 저장
     User.objects.update_or_create(
         id=user_id,
         defaults={
-            "name": d.get("name", ""),
-            "main_role": d.get("mainRole") or "unknown",
-            "sub_role": d.get("subRole"),
-            "keywords": d.get("keywords", []) or [],
-            "rating": d.get("rating", 0),
-            "participation": d.get("participation", 0),
+            "name": name_value,
+            "main_role": (
+                d.get("mainRole").strip()
+                if d.get("mainRole") and d.get("mainRole").strip() != ""
+                else (existing_user.main_role if existing_user else "unknown")
+            ),
+            "sub_role": (
+                d.get("subRole").strip()
+                if d.get("subRole") and d.get("subRole").strip() != ""
+                else (existing_user.sub_role if existing_user else None)
+            ),
+            "keywords": (
+                d.get("keywords")
+                if d.get("keywords")
+                else (existing_user.keywords if existing_user else [])
+            ),
+            "skills": (
+                d.get("skills")
+                if d.get("skills")
+                else (existing_user.skills if existing_user else [])
+            ),
+            "rating": rating_value,
+            "participation": participation_value,
         },
     )
 
@@ -33,10 +74,26 @@ def save_user_input(request):
     WaitingUser.objects.update_or_create(
         user_id=user_id,
         defaults={
-            "skills": d.get("skills", []) or [],
-            "main_role": d.get("mainRole") or "unknown",
-            "sub_role": d.get("subRole"),
-            "keywords": d.get("keywords", []) or [],
+            "skills": (
+                d.get("skills")
+                if d.get("skills")
+                else (existing_user.skills if existing_user else [])
+            ),
+            "main_role": (
+                d.get("mainRole").strip()
+                if d.get("mainRole") and d.get("mainRole").strip() != ""
+                else (existing_user.main_role if existing_user else "unknown")
+            ),
+            "sub_role": (
+                d.get("subRole").strip()
+                if d.get("subRole") and d.get("subRole").strip() != ""
+                else (existing_user.sub_role if existing_user else None)
+            ),
+            "keywords": (
+                d.get("keywords")
+                if d.get("keywords")
+                else (existing_user.keywords if existing_user else [])
+            ),
             "has_reward": bool(d.get("hasReward", False)),
         },
     )
@@ -49,9 +106,9 @@ def save_user_input(request):
 @api_view(['POST'])
 def apply_teamup(request):
     print("🔥 [views.py] apply_teamup 요청 도착!", request.method)
-    print("📦 [RAW BODY]:", request.body)        # 요청 원본 body (바이트 문자열)
-    print("📦 [DATA PARSED]:", request.data)    # DRF가 파싱한 데이터
-    print("📦 [HEADERS]:", request.headers)     # 요청 헤더 확인
+    print("📦 [RAW BODY]:", request.body)
+    print("📦 [DATA PARSED]:", request.data)
+    print("📦 [HEADERS]:", request.headers)
 
     raw = request.data.get("userId")
     if raw is None:
@@ -74,34 +131,42 @@ def apply_teamup(request):
     except User.DoesNotExist:
         return Response({"message": "해당 유저를 찾을 수 없습니다."}, status=404)
 
-    # 아직 팀에 소속되지 않은 모든 유저
+    # 아직 팀에 소속되지 않은 모든 유저 불러오기
     available_users = list(User.objects.exclude(
         id__in=TeamMember.objects.values_list("user_id", flat=True)
     ))
 
-    # 신청자는 무조건 포함 → 제일 앞으로 보장
+    # ✅ 1️⃣ 신청자는 반드시 포함시키고, 나머지는 랜덤하게 섞기
+    import random
+    random.shuffle(available_users)  # 순서 무작위화
+    # 신청자(user_pk)를 맨 앞으로 이동시켜 팀이 반드시 포함되게
     available_users.sort(key=lambda u: (u.id != user_pk))
 
-    created_team_ids = []
-
     with transaction.atomic():
-        # 4명씩 팀을 계속 생성
+        created_team_ids = []
+        matched_user_ids = [] 
+
+        # ✅ 2️⃣ 4명씩 잘라서 팀 구성 (랜덤 순서 유지)
         while len(available_users) >= TEAM_SIZE:
             selected_users = available_users[:TEAM_SIZE]
             available_users = available_users[TEAM_SIZE:]
 
-            new_team = Team.objects.create(
-                status="pending"
-            )
+            new_team = Team.objects.create(status="pending")
 
             for u in selected_users:
                 TeamMember.objects.create(
                     team=new_team,
                     user_id=u.id
                 )
+                matched_user_ids.append(u.id)
+                
             created_team_ids.append(new_team.id)
 
-        # 만약 인원이 4명 미만 남으면 WaitingUser에 넣기
+        # ✅ 여기서 한 번에 대기열 삭제
+        if matched_user_ids:
+            WaitingUser.objects.filter(user_id__in=matched_user_ids).delete()
+
+        # ✅ 3️⃣ 남은 인원이 4명 미만이면 대기열로 이동
         for u in available_users:
             WaitingUser.objects.update_or_create(
                 user_id=u.id,
@@ -114,7 +179,7 @@ def apply_teamup(request):
                 }
             )
 
-    # ---- ✅ 응답 데이터에 팀/멤버 상세 정보 포함 ----
+    # ✅ 4️⃣ 응답 데이터 구성 (기존 로직 유지)
     teams_data = []
     for tid in created_team_ids:
         team = Team.objects.get(id=tid)
@@ -131,7 +196,7 @@ def apply_teamup(request):
                     "keywords": waiting_info.keywords if waiting_info and waiting_info.keywords else u.keywords,
                     "skills": waiting_info.skills if waiting_info else [],
                     "rating": u.rating,
-                     "participation": u.participation,
+                    "participation": u.participation,
                 })
             except User.DoesNotExist:
                 members.append({"id": tm.user_id, "name": "알 수 없음"})
@@ -304,17 +369,25 @@ def submit_feedback(request):
 @api_view(['GET'])
 def get_waiting_users(request):
     """
-    WaitingUser 테이블의 현재 사용자 50명을 반환
-    - name이 없는 유저는 제외
-    - 50명 미만이면 User 테이블에서 랜덤 보충
+    WaitingUser 테이블의 현재 사용자 목록을 반환
+    - 초기에는 이명준(99) 제외 50명 생성
+    - 이후에는 그대로 유지 (제한 없음)
+    - 이명준이 있으면 유지, 없으면 제외
     """
-    waiting_users = list(WaitingUser.objects.all())
+    import random
 
-    # ✅ 대기열이 비어있으면 User 테이블에서 생성
+    # ✅ 현재 WaitingUser 불러오기 (99 제외)
+    waiting_users = list(WaitingUser.objects.exclude(user_id=99))
+
+    # ✅ 초기 시드 생성 (대기열이 비어 있을 때만)
     if not waiting_users:
-        users = list(User.objects.exclude(name__isnull=True)
-                                  .exclude(name__exact="")
-                                  .exclude(name__icontains="undefined"))
+        users = list(
+            User.objects.exclude(id=99)
+                        .exclude(name__isnull=True)
+                        .exclude(name__exact="")
+                        .exclude(name__icontains="undefined")
+        )
+
         if not users:
             return Response({"waiting_users": []})
 
@@ -326,62 +399,51 @@ def get_waiting_users(request):
                 sub_role=u.sub_role,
                 skills=u.skills,
                 keywords=u.keywords,
-                has_reward=False,
+                has_reward=False,   
             )
             for u in random_users
         ]
         WaitingUser.objects.bulk_create(waiting_instances)
-        waiting_users = WaitingUser.objects.all()
+        waiting_users = WaitingUser.objects.exclude(user_id=99)
+
+        # ✅ 이 시점에만 순서 랜덤화
+        random.shuffle(waiting_users)
 
     # ✅ 응답 데이터 구성
     data = []
     for w in waiting_users:
         try:
             u = User.objects.get(id=w.user_id)
-
-            # ⚠️ name이 비어있으면 스킵 (프론트에 undefined 안 보이게)
             if not u.name or u.name.strip() == "" or u.name.lower() == "undefined":
                 continue
-
             data.append({
                 "id": u.id,
                 "name": u.name,
-                "main_role": w.main_role or u.main_role,
-                "sub_role": w.sub_role or u.sub_role,
-                "keywords": w.keywords or u.keywords,
+                "mainRole": w.main_role or u.main_role or "",
+                "subRole": w.sub_role or u.sub_role or "",
+                "keywords": w.keywords or u.keywords or [],
                 "rating": u.rating,
                 "participation": u.participation,
             })
         except User.DoesNotExist:
-            # ❗User 테이블에서 사라진 경우
             continue
 
-    # ✅ 항상 50명 유지 (부족하면 랜덤으로 보충)
-    if len(data) < 50:
-        all_valid_users = list(
-            User.objects.exclude(name__isnull=True)
-                        .exclude(name__exact="")
-                        .exclude(name__icontains="undefined")
-        )
+    # ✅ 만약 이명준이 대기열에 추가되어 있다면 항상 포함
+    try:
+        mj_user = User.objects.get(id=99)
+        if WaitingUser.objects.filter(user_id=99).exists():
+            data.append({
+                "id": mj_user.id,
+                "name": mj_user.name,
+                "main_role": mj_user.main_role,
+                "sub_role": mj_user.sub_role,
+                "keywords": mj_user.keywords,
+                "rating": mj_user.rating,
+                "participation": mj_user.participation,
+            })
+    except User.DoesNotExist:
+        pass
 
-        # 이미 들어간 유저 제외
-        existing_ids = {d["id"] for d in data}
-        available_users = [u for u in all_valid_users if u.id not in existing_ids]
+    unique = list({item["id"]: item for item in data}.values())
+    return Response({"waiting_users": unique})
 
-        if available_users:
-            deficit = 50 - len(data)
-            extra_users = random.sample(available_users, min(deficit, len(available_users)))
-            for u in extra_users:
-                data.append({
-                    "id": u.id,
-                    "name": u.name,
-                    "main_role": u.main_role,
-                    "sub_role": u.sub_role,
-                    "keywords": u.keywords,
-                    "rating": u.rating,
-                    "participation": u.participation,
-                })
-
-    # ✅ 마지막에 중복 제거 안전망
-    unique = {item["id"]: item for item in data}.values()
-    return Response({"waiting_users": list(unique)[:50]})

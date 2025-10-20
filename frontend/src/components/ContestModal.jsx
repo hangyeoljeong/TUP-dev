@@ -58,11 +58,12 @@ const ContestModal = ({
           const hydrate = (members) =>
             members.map((m) => {
               const u = users.find((u) => u.id === m.id);
+
               return {
                 id: m.id,
                 name: m.name || u?.name || `User ${m.id}`,
-                mainRole: m.main_role || u?.mainRole || null,
-                subRole: m.sub_role || u?.subRole || null,
+                mainRole: m.mainRole || m.main_role || u?.mainRole || u?.main_role || "",
+                subRole: m.subRole || m.sub_role || u?.subRole || u?.sub_role || "",
                 skills: m.skills || u?.skills || [],
                 keywords: m.keywords || u?.keywords || [],
                 rating: m.rating ?? u?.rating,

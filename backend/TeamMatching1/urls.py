@@ -1,7 +1,7 @@
 from django.urls import path
 from . import views
 
-app_name = "team_matching1"
+app_name = "team-matching1"
 
 urlpatterns = [
     path("save/", views.save_user_input),

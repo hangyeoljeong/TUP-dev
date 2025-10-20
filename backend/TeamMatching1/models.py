@@ -3,10 +3,10 @@ from django.db import models
 class User(models.Model):
     id = models.IntegerField(primary_key=True)  # 기존 users 테이블의 PK
     name = models.CharField(max_length=100)
-    main_role = models.CharField(max_length=100)
+    main_role = models.CharField(max_length=100, blank=True, null=True)
     sub_role = models.CharField(max_length=100, blank=True, null=True)
     skills = models.JSONField(default=list)
-    keywords = models.JSONField(default=list)
+    keywords = models.JSONField(default=list, blank=True, null=True)
     rating = models.FloatField(blank=True, null=True)
     participation = models.IntegerField(default=0)
     has_reward = models.BooleanField(default=False)

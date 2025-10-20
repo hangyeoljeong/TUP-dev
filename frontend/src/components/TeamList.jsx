@@ -79,13 +79,13 @@ const TeamList = ({ matched, feedbacks, onFeedback, currentUser }) => {
 
               <div style={{ paddingLeft: '1.5rem' }}>
                 <p>
-                  <strong>희망 역할군:</strong> {member.mainRole || '입력 없음'}
+                  <strong>희망 역할군:</strong> {member.mainRole || member.main_role}
                 </p>
                 <p>
-                  <strong>보조 가능 역할군:</strong> {member.subRole || '입력 없음'}
+                  <strong>보조 가능 역할군:</strong> {member.subRole || member.sub_role}
                 </p>
                 <p>
-                  <strong>보유 역량:</strong> {member.keywords?.join(', ') || '없음'}
+                  <strong>보유 역량:</strong> {member.keywords.join(', ')}
                 </p>
 
                 {member.rating !== undefined && member.participation !== undefined ? (

@@ -6,10 +6,8 @@ backend bash 입장 후 cd backend -> python manage.py shell
 '''bash
 from TeamMatching1.models import WaitingUser, Team
 
-# 대기열 전체 삭제
 WaitingUser.objects.all().delete()
 
-# 팀 전체 삭제
 Team.objects.all().delete()
 
 print("✅ 대기열 및 팀 초기화 완료!")

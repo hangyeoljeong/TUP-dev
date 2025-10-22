@@ -1,5 +1,7 @@
 import http from '../lib/http';
 
+console.log("📡 [DEBUG] teamup1.js 로드됨");
+
 // 1) 사용자 입력 저장
 export const saveUserInput = async (payload) => {
   const { data } = await http.post('team-matching1/save/', payload, {
@@ -26,26 +28,66 @@ export const getMatchedTeams = async () => {
   return data;
 };
 
-// 4) 피드백 저장
-export const submitFeedback = async ({ teamId, userId, agree }) => {
-  const { data } = await http.post(
-    'team-matching1/feedback/',
-    { teamId, userId, agree },
-    {
-      headers: { 'Content-Type': 'application/json' },
-    }
-  );
-  return data;
-};
-
-// 5) 재매칭 / 대기열 이동 액션
-export const performFeedbackAction = async ({ teamId, userId, action }) => {
-  const { data } = await http.post('team-matching1/submit_feedback/', {
+export const performFeedbackAction = async ({
+  teamId,
+  userId,
+  action,
+  agree,
+  agreedUserIds,
+}) => {
+  console.log('🟠 [DEBUG] performFeedbackAction 실행됨:', {
+    action,
     teamId,
     userId,
-    action, // 'rematch' 또는 'requeue'
+    agree,
+    agreedUserIds,
   });
-  return data; // { message }
+
+  let endpoint = '';
+  let payload = {};
+
+  if (action === 'feedback') {
+    endpoint = 'team-matching1/feedback/';
+    payload = { 
+      team_id: teamId, 
+      user_id: userId, 
+      agree: agree 
+    };  // ✅ 수정됨
+  
+
+    console.log('📡 피드백 요청 전송:', payload);
+    try {
+      const { data } = await http.post(endpoint, payload, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      console.log('✅ 피드백 응답:', data);
+      return data;
+    } catch (err) {
+      console.error('❌ 피드백 전송 실패:', err);
+      if (err.response) console.error('서버 응답:', err.response.data);
+      throw err;
+    }
+  }
+  // 나머지 rematch / requeue 는 그대로
+  else if (action === 'rematch') {
+    endpoint = 'team-matching1/apply_team_rematch/';
+    payload = {
+      contest_id: 1,
+      team_id: teamId,
+      agreed_user_ids: agreedUserIds,
+    };
+  } else if (action === 'requeue') {
+    endpoint = 'team-matching1/requeue_team/';
+    payload = { team_id: teamId, user_id: userId };
+  }
+
+  if (endpoint && action !== 'feedback') {
+    const { data } = await http.post(endpoint, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    console.log('✅ 서버 응답:', data);
+    return data;
+  }
 };
 
 // 6) 대기열 사용자
@@ -54,14 +96,17 @@ export const getWaitingUsers = async () => {
   return data; // [ { userId, mainRole, subRole, skills, keywords, hasReward } ]
 };
 
-// 7) 재매칭 요청
-export const applyTeamRematch = async ({ contestId, agreedUserIds, teamId }) => {
-  const { data } = await http.post(
-    'team-matching1/rematch/',
-    { contestId, agreedUserIds, teamId },
-    {
+export const applyTeamRematch = async (payload) => {
+  try {
+    console.log('📤 [API 호출] applyTeamRematch payload:', payload);
+    const res = await http.post('team-matching1/apply_team_rematch/', payload, {
       headers: { 'Content-Type': 'application/json' },
-    }
-  );
-  return data;
+    });
+    console.log('📥 [API 응답] applyTeamRematch res:', res);
+    return res; // ✅ data만이 아니라 전체 response 객체 리턴
+  } catch (err) {
+    console.error('❌ applyTeamRematch 실패:', err.response?.data || err.message);
+    throw err;
+  }
 };
+

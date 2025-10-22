@@ -3,7 +3,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
-from .models import User, Team, TeamMember, WaitingUser, Feedback
+from django.shortcuts import get_object_or_404
+from .models import User, Team, TeamMember, WaitingUser, Feedback, TeamAvoid
 
 # 팀 정원
 TEAM_SIZE = 4
@@ -144,12 +145,33 @@ def apply_teamup(request):
 
     with transaction.atomic():
         created_team_ids = []
-        matched_user_ids = [] 
+        matched_user_ids = []
+
+        # 🚫 TeamAvoid 기반으로 '다시 만나면 안 되는 관계' 반영
+        from .models import TeamAvoid  # 함수 맨 위 import 추가해도 됨
+
+        # 모든 회피 관계 불러오기
+        avoid_pairs = TeamAvoid.objects.all()
+        avoid_dict = {}
+        for pair in avoid_pairs:
+            avoid_dict.setdefault(pair.user_a, set()).add(pair.user_b)
 
         # ✅ 2️⃣ 4명씩 잘라서 팀 구성 (랜덤 순서 유지)
+        teams_to_create = []
+        used_users = set()
+
         while len(available_users) >= TEAM_SIZE:
-            selected_users = available_users[:TEAM_SIZE]
-            available_users = available_users[TEAM_SIZE:]
+            selected_users = []
+            for u in available_users:
+                # 회피 관계 있는 사람과 팀 구성 금지
+                if any(u.id in avoid_dict.get(sel.id, set()) for sel in selected_users):
+                    continue
+                selected_users.append(u)
+                if len(selected_users) == TEAM_SIZE:
+                    break
+
+            if len(selected_users) < TEAM_SIZE:
+                break  # 남은 인원은 회피 관계 때문에 팀 구성 불가
 
             new_team = Team.objects.create(status="pending")
 
@@ -159,8 +181,12 @@ def apply_teamup(request):
                     user_id=u.id
                 )
                 matched_user_ids.append(u.id)
-                
+                used_users.add(u.id)
+
             created_team_ids.append(new_team.id)
+
+            # 이미 매칭된 인원 제거
+            available_users = [u for u in available_users if u.id not in used_users]
 
         # ✅ 여기서 한 번에 대기열 삭제
         if matched_user_ids:
@@ -218,6 +244,8 @@ def apply_teamup(request):
 @csrf_exempt
 @api_view(['GET'])
 def get_matched_teams(request):
+    print("🔥 [Django] feedback 요청 도착!")
+    print("📦 request.data:", request.data)
     teams = Team.objects.prefetch_related('teammember_set').all()
     result = []
 
@@ -254,115 +282,54 @@ def get_matched_teams(request):
 @csrf_exempt
 @api_view(['POST'])
 def submit_feedback(request):
-    team_id = request.data.get("teamId")
-    raw = request.data.get("userId")
-    agree = bool(request.data.get("agree", True))
-    if team_id is None or raw is None:
-        return Response({"message":"teamId, userId가 필요합니다."}, status=400)
-    try:
-        user_pk = int(str(raw).strip())
-    except ValueError:
-        return Response({"message":"userId는 정수여야 합니다."}, status=400)
+    print("🔥 [submit_feedback] 요청 도착:", request.method)
+    print("📦 [submit_feedback] DATA:", request.data)
 
-    # 피드백 저장/갱신
+    data = request.data
+    team_id = data.get("team_id") or data.get("teamId")
+    user_id = data.get("user_id") or data.get("userId")
+    agree = data.get("agree")
+
+    agree = str(agree).lower() in ("true", "1", "yes", "y")
+
+    # ✅ 필수값 검증
+    if not team_id or not user_id:
+        return Response({"message": "team_id, user_id가 필요합니다."}, status=400)
+
+    try:
+        team_id = int(team_id)
+        user_pk = int(user_id)
+    except ValueError:
+        return Response({"message": "team_id, user_id는 정수여야 합니다."}, status=400)
+
+    # ✅ 피드백 저장 (단순 저장만)
     Feedback.objects.update_or_create(
-        team_id=team_id, user_id=user_pk, defaults={"is_agree": agree}
+        team_id=team_id,
+        user_id=user_pk,
+        defaults={"agree": agree},
     )
 
-    # 현재 팀 구성원 수와 피드백 수 비교
     members_qs = TeamMember.objects.filter(team_id=team_id)
     cnt_members = members_qs.count()
     fbs = list(Feedback.objects.filter(team_id=team_id))
+
+    # 아직 모두 완료 안됨 → 단순 저장
     if len(fbs) < cnt_members:
-        return Response({"message":"피드백 저장 완료"}, status=201)
+        return Response({"message": "피드백 저장 완료"}, status=201)
 
-    # 전원 제출됨
-    if all(f.is_agree for f in fbs):
+    # 모두 동의 → 팀 확정
+    if all(f.agree for f in fbs):
         Team.objects.filter(id=team_id).update(is_finalized=True)
-        return Response({"message":"모두 동의. 팀 확정 완료."}, status=200)
+        return Response({"message": "모두 동의. 팀 확정 완료."}, status=200)
 
-    # 일부 비동의 → 비동의자만 팀 이탈 + 대기열 복귀 + 결원 자동보충(4명까지)
-    disagree_ids = [f.user_id for f in fbs if not f.is_agree]
-
-    # 가능한 경우 api.UserProfile에서 WaitingUser 기본값 복구
-    def _rehydrate_defaults(uid: int):
-        try:
-            from api.models import UserProfile
-            up = UserProfile.objects.get(user__id=uid)
-            return {
-                "skills": up.skills or [],
-                "main_role": getattr(up, "mainRole", None) or "unknown",
-                "sub_role": getattr(up, "subRole", None),
-                "keywords": up.keywords or [],
-                "has_reward": bool(getattr(up, "has_reward", False)),
-            }
-        except Exception:
-            return {
-                "skills": [],
-                "main_role": "unknown",
-                "sub_role": None,
-                "keywords": [],
-                "has_reward": False,
-            }
-
-    with transaction.atomic():
-        team = Team.objects.select_for_update().get(id=team_id)
-
-        # 1) 비동의자만 팀에서 제거 + 대기열 복귀
-        removed_leader = False
-        for uid in disagree_ids:
-            # 팀원 제거
-            TeamMember.objects.filter(team_id=team_id, user_id=uid).delete()
-            if team.leader_id == uid:
-                removed_leader = True
-            # 대기열 복귀(정보 복구)
-            WaitingUser.objects.update_or_create(
-                user_id=str(uid),
-                defaults=_rehydrate_defaults(uid),
-            )
-
-        # 2) 남은 팀원이 없으면 팀 해체
-        remaining = list(TeamMember.objects.filter(team_id=team_id).order_by('user_id'))
-        if not remaining:
-            Feedback.objects.filter(team_id=team_id).delete()
-            Team.objects.filter(id=team_id).delete()
-            return Response({"message": f"모두 비동의로 팀 해체. 비동의 {len(disagree_ids)}명 대기열 복귀 완료."}, status=200)
-
-        # 3) 리더가 나갔으면 새 리더 선임(남은 팀원 중 user_id가 가장 작은 사람) -> db 무결성 때문에 하나 무조건 정해야댐
-        if removed_leader:
-            new_leader_id = remaining[0].user_id
-            Team.objects.filter(id=team_id).update(leader_id=new_leader_id)
-
-        # 4) 결원 자동 보충 (정원 TEAM_SIZE까지)
-        current_cnt = len(remaining)
-        need = max(0, TEAM_SIZE - current_cnt)
-        if need > 0:
-            # 방금 팀에서 나간 비동의자들은 같은 라운드에서 재합류하지 않도록 제외
-            exclude_ids = set(str(x) for x in disagree_ids)
-            waiting = list(WaitingUser.objects.exclude(user_id__in=exclude_ids))
-            # 리워드 우선, 그다음 user_id 오름차순
-            waiting.sort(key=lambda w: (not bool(w.has_reward), int(w.user_id) if str(w.user_id).isdigit() else 1_000_000))
-            take = waiting[:need]
-            for w in take:
-                # 중복 방지
-                if not TeamMember.objects.filter(team_id=team_id, user_id=int(w.user_id)).exists():
-                    TeamMember.objects.create(team_id=team_id, user_id=int(w.user_id), role='member')
-                    w.delete()
-            # 인원 재확인
-            current_cnt = TeamMember.objects.filter(team_id=team_id).count()
-
-        # 팀은 아직 확정 아님(재동의 필요 가능성) → 기존 피드백은 리셋
-        Team.objects.filter(id=team_id).update(is_finalized=False)
-        Feedback.objects.filter(team_id=team_id).delete()
-
-        # 현재 멤버 목록 반환
-        members = list(TeamMember.objects.filter(team_id=team_id).values_list('user_id', flat=True))
-        return Response({
-            "message": f"비동의 {len(disagree_ids)}명 팀 이탈 및 대기열 복귀. 현재 팀원 {current_cnt}명, 정원 {TEAM_SIZE}명.",
-            "teamId": team_id,
-            "members": members
-        }, status=200)
-# ✅ 추가할 코드 (TeamMatching1/views.py 맨 아래에 넣어줘)
+    # ✅ (수정됨) 여기서는 아무것도 이동시키지 않음.
+    # 단순히 "피드백 모두 완료됨"만 알려줌
+    disagree_ids = [f.user_id for f in fbs if not f.agree]
+    return Response({
+        "message": f"피드백 완료. 비동의 {len(disagree_ids)}명 있음.",
+        "teamId": team_id,
+        "disagreed_users": disagree_ids,
+    }, status=200)
 
 
 @csrf_exempt
@@ -447,3 +414,78 @@ def get_waiting_users(request):
     unique = list({item["id"]: item for item in data}.values())
     return Response({"waiting_users": unique})
 
+@csrf_exempt
+@api_view(['POST'])
+def apply_team_rematch(request):
+    """
+    👍 인원 유지, 👎 인원은 여기서 대기열 복귀 + 팀 재구성
+    """
+    data = request.data
+    team_id = data.get("team_id") or data.get("teamId")
+    agreed_user_ids = data.get("agreed_user_ids") or data.get("agreedUserIds")
+
+    if not team_id or not agreed_user_ids:
+        return Response({"message": "team_id 또는 agreed_user_ids가 필요합니다."}, status=400)
+
+    team_id = int(team_id)
+    agreed_user_ids = [int(uid) for uid in agreed_user_ids]
+
+    team = get_object_or_404(Team, id=team_id)
+
+    # ✅ 1️⃣ 피드백 중 비동의자 추출
+    all_feedbacks = Feedback.objects.filter(team_id=team_id)
+    disagree_ids = [f.user_id for f in all_feedbacks if not f.agree]
+
+    # ✅ 2️⃣ 비동의자 대기열 복귀 처리
+    def _rehydrate_defaults(uid: int):
+        try:
+            u = User.objects.get(id=uid)
+            return {
+                "skills": u.skills or [],
+                "main_role": u.main_role or "unknown",
+                "sub_role": u.sub_role,
+                "keywords": u.keywords or [],
+                "has_reward": bool(getattr(u, "has_reward", False)),
+            }
+        except User.DoesNotExist:
+            return {
+                "skills": [],
+                "main_role": "unknown",
+                "sub_role": None,
+                "keywords": [],
+                "has_reward": False,
+            }
+
+    with transaction.atomic():
+        # ⚙️ 기존 팀 초기화
+        TeamMember.objects.filter(team_id=team_id).delete()
+
+        # 👎 비동의자 대기열 복귀
+        for uid in disagree_ids:
+            WaitingUser.objects.update_or_create(user_id=uid, defaults=_rehydrate_defaults(uid))
+
+        # 👍 동의자 다시 팀에 추가
+        for uid in agreed_user_ids:
+            TeamMember.objects.create(team_id=team_id, user_id=uid)
+
+        # ⚙️ 대기열에서 부족 인원 보충
+        need = max(0, TEAM_SIZE - len(agreed_user_ids))
+        waiting_candidates = list(WaitingUser.objects.exclude(user_id__in=agreed_user_ids))
+        random.shuffle(waiting_candidates)
+
+        new_members = list(agreed_user_ids)
+        for w in waiting_candidates[:need]:
+            TeamMember.objects.create(team_id=team_id, user_id=w.user_id)
+            new_members.append(w.user_id)
+            w.delete()  # ⚠️ 보충된 인원은 대기열에서 제거
+
+        # 피드백 초기화 + 팀 미확정 상태로 설정
+        Feedback.objects.filter(team_id=team_id).delete()
+        Team.objects.filter(id=team_id).update(is_finalized=False)
+
+    return Response({
+        "message": f"재매칭 완료. 비동의자 {len(disagree_ids)}명 대기열 복귀 완료. 팀 {team_id} 재구성 완료.",
+        "team_id": team_id,
+        "new_members": new_members,
+        "waiting_users_count": WaitingUser.objects.count(),
+    }, status=200)

@@ -7,7 +7,14 @@ import FeedbackModal from './FeedbackModal';
 import { calculateDday } from '../utils/dateUtils';
 import GroupsIcon from '@mui/icons-material/Groups';
 import { toast } from 'react-toastify';
-import { saveUserInput, getWaitingUsers, applyTeamup, getMatchedTeams, applyTeamRematch } from '../api/teamup1'; // API 래퍼
+import {
+  saveUserInput,
+  getWaitingUsers,
+  applyTeamup,
+  getMatchedTeams,
+  applyTeamRematch,
+  performFeedbackAction,
+} from '../api/teamup1';
 
 const ContestModal = ({
   open,
@@ -17,27 +24,49 @@ const ContestModal = ({
   setUsers,
   userSkills,
   setUserSkills,
-  feedbacks,
-  onFeedback,
   currentUser,
 }) => {
   const [mainRole, setMainRole] = useState('');
   const [subRole, setSubRole] = useState('');
   const [matched, setMatched] = useState([]);
-  const [rawTeams, setRawTeams] = useState([]); // ✅ 팀 목록 상태 정의
+  const [myTeam, setMyTeam] = useState(null); // ✅ 내 팀 상태로 관리
+  const [feedbacks, setFeedbacks] = useState({});
+  const [rawTeams, setRawTeams] = useState([]);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+
   const hasShownToast = useRef(false);
   const formRef = useRef(null);
   const queueRef = useRef(null);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isTeamHovered, setIsTeamHovered] = useState(false);
-  const [isFeedbackHovered, setIsFeedbackHovered] = useState(false);
-  const [isTeamroomHovered, setIsTeamroomHovered] = useState(false);
+
+  
+
+  useEffect(() => {
+    const saved = localStorage.getItem('userInput');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setUserSkills(parsed.keywords || parsed.skills || []); 
+        setMainRole(parsed.mainRole || '');
+        setSubRole(parsed.subRole || '');
+        console.log('💾 이전 입력 복원됨:', parsed);
+      } catch (err) {
+        console.error('❌ 저장된 입력 복원 실패:', err);
+      }
+    }
+  }, []);
+
 
   const scrollToBoth = () => {
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     queueRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  const [isHovered, setIsHovered] = useState(false);
+  const [isTeamHovered, setIsTeamHovered] = useState(false);
+  const [isFeedbackHovered, setIsFeedbackHovered] = useState(false);
+  const [isTeamroomHovered, setIsTeamroomHovered] = useState(false);
+
+  // ✅ 입력 안내 토스트
   useEffect(() => {
     const alreadySaved = users.some((u) => u.id === currentUser?.id);
     if (open && !hasShownToast.current && !alreadySaved) {
@@ -46,7 +75,7 @@ const ContestModal = ({
     }
   }, [open, users, currentUser]);
 
-  // ✅ 모달이 열리면 서버에서 현재 팀 상태를 로드해서 matched에 주입
+  // ✅ 모달 열릴 때 서버에서 팀 목록 불러오기
   useEffect(() => {
     if (!open || !selectedContest?.id) return;
     (async () => {
@@ -54,23 +83,20 @@ const ContestModal = ({
         const list = await getMatchedTeams();
         if (Array.isArray(list)) {
           setRawTeams(list);
-          // TeamList가 멤버 객체를 기대하면 users에서 아이디 기준으로 수화(hydrate)
           const hydrate = (members) =>
             members.map((m) => {
               const u = users.find((u) => u.id === m.id);
-
               return {
                 id: m.id,
                 name: m.name || u?.name || `User ${m.id}`,
-                mainRole: m.mainRole || m.main_role || u?.mainRole || u?.main_role || "",
-                subRole: m.subRole || m.sub_role || u?.subRole || u?.sub_role || "",
+                mainRole: m.mainRole || m.main_role || u?.mainRole || '',
+                subRole: m.subRole || m.sub_role || u?.subRole || '',
                 skills: m.skills || u?.skills || [],
-                keywords: m.keywords || u?.keywords || [],
+                keywords: [...(m.keywords || u?.keywords || [])],
                 rating: m.rating ?? u?.rating,
                 participation: m.participation ?? u?.participation,
               };
             });
-
           setMatched(list.map((t) => hydrate(t.members)));
         }
       } catch (e) {
@@ -79,177 +105,224 @@ const ContestModal = ({
     })();
   }, [open, selectedContest?.id]);
 
-  const isMatched = matched.some((team) => team.some((member) => member.id === currentUser?.id));
+  // ✅ 내 팀 자동 계산 (matched 변경 시 반영)
+  useEffect(() => {
+    if (!matched || !currentUser) return;
+    const found = matched.find((team) =>
+      team.some((m) => m.id === currentUser?.id)
+    );
+    if (found && JSON.stringify(found) !== JSON.stringify(myTeam)) {
+      setMyTeam(found);
+      console.log('🌀 useEffect 기반 myTeam 갱신');
+    }
+  }, [JSON.stringify(matched), currentUser?.id]);
 
-  // ✅ 재매칭 함수
+  const isMatched = !!myTeam;
+
+  // ✅ refreshTeams (팀 & 대기열 즉시 갱신)
+  const refreshTeams = async () => {
+    try {
+      console.log('📡 최신 팀 목록 불러오는 중...');
+      const [teamsRes, waitingRes] = await Promise.all([
+        getMatchedTeams(),
+        getWaitingUsers(),
+      ]);
+
+      const updatedTeams = Array.isArray(teamsRes?.data) ? teamsRes.data : teamsRes;
+      const waitingUsersData =
+        waitingRes?.data?.waiting_users || waitingRes?.waiting_users || [];
+
+      const hydrate = (members) =>
+        members.map((m) => {
+          const u = users.find((u) => u.id === m.id);
+          return {
+            id: m.id,
+            name: m.name || u?.name || `User ${m.id}`,
+            mainRole: m.mainRole || u?.mainRole || '',
+            subRole: m.subRole || u?.subRole || '',
+            skills: [...(m.skills || u?.skills || [])], // 새 배열 복사
+            keywords: [...(m.keywords || u?.keywords || [])],
+            rating: m.rating ?? u?.rating,
+            participation: m.participation ?? u?.participation,
+          };
+        });
+
+      const newTeams = updatedTeams.map((t) => ({
+        ...t,
+        members: hydrate(t.members || []),
+      }));
+
+      setRawTeams([...newTeams]);
+      setMatched(newTeams.map((t) => [...t.members]));
+      setUsers([...waitingUsersData]);
+
+      // ✅ 내 팀도 즉시 업데이트
+      const newMyTeam = newTeams.find((t) =>
+        t.members.some((m) => m.id === currentUser?.id)
+      );
+      setMyTeam(newMyTeam || null);
+
+      console.log('✅ refreshTeams 완료 - 새 팀:', newMyTeam);
+    } catch (err) {
+      console.error('❌ refreshTeams 실패:', err);
+    }
+  };
+
+  // ✅ 피드백 클릭
+  const handleFeedback = async (memberId, symbol) => {
+    console.log('💬 피드백 클릭됨:', memberId, symbol);
+
+    const rawMyTeam = rawTeams.find(
+      (t) => Array.isArray(t.members) && t.members.some((m) => m.id === currentUser?.id)
+    );
+    const teamId = rawMyTeam?.teamId || rawMyTeam?.team_id;
+
+    if (!teamId) {
+      toast.error('teamId를 찾을 수 없습니다.');
+      return;
+    }
+
+    try {
+      const res = await performFeedbackAction({
+        action: 'feedback',
+        teamId,
+        userId: memberId,
+        agree: symbol === '👍',
+      });
+
+      console.log('✅ 피드백 전송 성공:', res);
+
+      setFeedbacks((prev) => ({ ...prev, [memberId]: symbol }));
+      toast.success(`피드백(${symbol})이 저장되었습니다!`);
+    } catch (err) {
+      console.error('❌ 피드백 실패:', err);
+      toast.error('피드백 저장 실패!');
+    }
+  };
+
+  // ✅ 재매칭 함수 (자동 새로고침 버전)
   const handleRematch = async () => {
-    const myTeam = matched.find((team) => team.some((member) => member.id === currentUser?.id));
+    const myTeam = matched.find((team) =>
+      team.some((member) => member.id === currentUser?.id)
+    );
     if (!myTeam) return;
 
     const agreedUsers = myTeam.filter((member) => feedbacks[member.id] === '👍');
 
-    const rawMyTeam = rawTeams.find((t) => (t.members || []).some((m) => m.id === currentUser?.id));
-    const teamId = rawMyTeam?.id;
+    const rawMyTeam = rawTeams.find(
+      (t) => Array.isArray(t.members) && t.members.some((m) => m.id === currentUser?.id)
+    );
+    const teamId = rawMyTeam?.teamId || rawMyTeam?.team_id;
 
-    if (agreedUsers.length < 2) {
-      toast.warning('동의한 인원이 너무 적어요! 재매칭이 어려워요.');
-      return;
-    }
-
-    if (!selectedContest?.id || !teamId) {
-      toast.error('재매칭 정보를 불러올 수 없습니다.');
+    if (!teamId) {
+      toast.error('teamId를 찾을 수 없습니다.');
       return;
     }
 
     try {
-      const res = await runRematch({
+      console.log('🚀 재매칭 요청 시작');
+      const res = await applyTeamRematch({
         contestId: selectedContest.id,
         agreedUserIds: agreedUsers.map((u) => u.id),
         teamId,
       });
-      if (res?.success && Array.isArray(res.teams)) {
-        setMatched(res.teams.map((t) => t.members || []));
-        toast.success('재매칭 완료!');
-      } else {
-        toast.info('재매칭을 수행하지 못했어요.');
+
+      const message =
+        res?.message ||
+        res?.data?.message ||
+        (typeof res === 'string' ? res : null);
+
+      if (!message?.includes('완료')) {
+        toast.warning('서버에서 재매칭 완료 응답이 오지 않았습니다.');
+        return;
       }
-    } catch (e) {
-      console.error(e);
-      toast.error(e.message || '재매칭 중 오류가 발생했습니다.');
-    }
-  };
-  // ✅ runRematch 함수 정의
-  const runRematch = async ({ contestId, agreedUserIds, teamId }) => {
-    try {
-      const res = await applyTeamRematch({ contestId, agreedUserIds, teamId });
-      return res;
+
+      toast.success('재매칭 완료! 곧 페이지가 새로고침됩니다.');
+
+      // ✅ 1초 뒤 페이지 새로고침
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (err) {
-      console.error('재매칭 실패:', err);
-      throw err;
+      console.error('❌ 재매칭 오류:', err);
+      toast.error(err.message || '재매칭 중 오류 발생');
     }
   };
 
-  // ✅ 백엔드 재매칭 API 호출
-
-  // ✅ 비동의 인원 대기열로 이동
-  const handleRequeue = () => {
-    const myTeam = matched.find((team) => team.some((member) => member.id === currentUser?.id));
-    if (!myTeam) return;
-
-    const disagreedUsers = myTeam.filter((member) => feedbacks[member.id] === '👎');
-
-    if (disagreedUsers.length === 0) {
-      toast.info('비동의자가 없습니다.');
-      return;
-    }
-  };
-
+  // ✅ 저장 버튼
   const handleSave = async () => {
     if (isMatched) {
       toast.warning('이미 팀에 속해 있어 수정할 수 없습니다.');
       return;
     }
 
-    if (userSkills.length === 0 || !mainRole.trim()) {
-      toast.warning('역량 키워드와 희망 역할군을 모두 입력해주세요.');
-      return;
-    }
-
-    if (!currentUser || !currentUser.id) {
-      toast.error('현재 사용자 정보가 없습니다.');
+    if (userSkills.length === 0 || !mainRole.trim() || !subRole.trim()) {
+      toast.warning('❗ 키워드, 희망 역할군, 보조 역할군을 모두 입력해주세요!');
       return;
     }
 
     const newUser = {
       id: currentUser.id,
       name: currentUser.name || '나',
-      skills: userSkills,
+      // ⚠️ userSkills는 사실 "키워드"이므로 아래처럼 분리
       keywords: userSkills,
+      skills: [], // 아직 별도 입력 없음 (나중에 추가 가능)
       mainRole,
       subRole,
-      rating: currentUser.rating ?? null,
-      participation: currentUser.participation ?? 0,
     };
 
-    const alreadyInQueue = users.some((user) => user.id === currentUser.id);
-    // ✅ 사용자 입력 저장 (대기열 정보 저장)
     try {
       const res = await saveUserInput({
         userId: newUser.id,
-        skills: newUser.skills,
+        keywords: newUser.keywords,  // ✅ 추가됨
+        skills: newUser.skills,      // ✅ 빈 배열이더라도 명시
         mainRole: newUser.mainRole,
-        subRole: newUser.subRole || undefined,
-        keywords: newUser.keywords || newUser.skills,
-        hasReward: false, // 필요 시 UI에서 선택값 연결
+        subRole: newUser.subRole,
       });
 
       if (res?.message) {
-        // ⭕️ UI 유지 위해 로컬 큐도 업데이트(백엔드 연동 전 단계에서 임시)
-        if (alreadyInQueue) {
-          setUsers((prev) => prev.map((u) => (u.id === newUser.id ? newUser : u)));
-          toast.info('기존 정보를 수정했어요.');
-        } else {
-          setUsers((prev) => [...prev, newUser]);
-          toast.success('저장 완료! 대기열에 추가되었습니다.');
-        }
-      } else {
-        toast.error('등록에 실패했습니다.');
+        localStorage.setItem(
+          'userInput',
+          JSON.stringify({
+            keywords: userSkills, // ✅ 명시적으로 keywords로 저장
+            mainRole,
+            subRole,
+          })
+        );
+
+        setUsers((prev) => [...prev.filter((u) => u.id !== newUser.id), newUser]);
+        toast.success('저장 완료!');
+        await refreshTeams();   // 최신 대기열/팀 목록 즉시 반영
       }
     } catch (e) {
-      console.error(e);
-      toast.error(e.message || '네트워크 오류');
+      toast.error('네트워크 오류');
     }
   };
-
+  // ✅ 팀 매칭
   const matchTeam = async () => {
-    // 기존 로컬 대기열 체크는 유지
     if (users.length < 4) {
       toast.info('대기 인원이 부족해요! 팀업을 기다려주세요 😊');
       return;
     }
 
-    console.log('✅ currentUser:', currentUser); // 👉 현재 유저 객체 확인
-    console.log('✅ currentUser.id:', currentUser?.id); // 👉 id 값이 실제로 존재하는지 확인
-
-    if (!currentUser?.id) {
-      toast.error('현재 사용자 정보가 없습니다.');
-      return;
-    }
     try {
       const res = await applyTeamup(currentUser.id);
-      // 백엔드 스펙: 200이면 메시지, 201이면 생성 + teamId
-      if (res?.teamId) {
-        toast.success(`팀 매칭 완료! (teamId: ${res.teamId})`);
-      } else if (res?.message) {
-        toast.info(res.message); // "인원이 부족합니다. 대기열에서 대기 중입니다." 등
-      }
-      // 매칭/상태 반영을 위해 목록 재조회
-      const list = await getMatchedTeams();
-      if (Array.isArray(list)) {
-        setRawTeams(list);
-        const hydrate = (ids) =>
-          ids.map(
-            (uid) =>
-              users.find((u) => u.id === uid) || {
-                id: uid,
-                name: `User ${uid}`,
-              }
-          );
-        setMatched(list.map((t) => hydrate(t.members)));
-      }
+      toast.success(res?.message || '팀 매칭 완료!');
+      await refreshTeams();
     } catch (e) {
-      console.error(e);
-      toast.error(e.message || '매칭 중 오류가 발생했습니다.');
+      toast.error('매칭 중 오류');
     }
   };
 
   if (!selectedContest) return null;
 
   const { title, image, category, deadline, start, organizer } = selectedContest;
+  const rawMyTeam = rawTeams.find(
+    (t) => Array.isArray(t.members) && t.members.some((m) => m.id === currentUser?.id)
+  );
+  const teamIdForModal = rawMyTeam?.teamId || null;
 
-  const myTeam = matched.find((team) => team.some((member) => member.id === currentUser?.id));
-
-  return (
+   return (
     <>
       <Modal open={open} onClose={onClose}>
         <div
@@ -487,7 +560,7 @@ const ContestModal = ({
                   <TeamList
                     matched={matched}
                     feedbacks={feedbacks}
-                    onFeedback={onFeedback}
+                    onFeedback={handleFeedback}
                     currentUser={currentUser}
                   />
                   <div
@@ -555,18 +628,19 @@ const ContestModal = ({
         </div>
       </Modal>
 
-      <FeedbackModal
-        open={isFeedbackModalOpen}
-        onClose={() => setIsFeedbackModalOpen(false)}
-        team={myTeam || []}
-        feedbacks={feedbacks}
-        currentUser={currentUser}
-        scrollToBoth={scrollToBoth}
-        teamId={myTeam?.id} // ✅ 새로 추가
-        onRematch={handleRematch} // ✅ 추가
-        onRequeue={handleRequeue} // ✅ 추가
-        users={users}
-      />
+      {isFeedbackModalOpen && (
+        <FeedbackModal
+          open={isFeedbackModalOpen}
+          onClose={() => setIsFeedbackModalOpen(false)}
+          team={myTeam || []}
+          feedbacks={feedbacks}
+          currentUser={currentUser}
+          scrollToBoth={scrollToBoth}
+          teamId={teamIdForModal}
+          users={users}
+          refreshTeams={refreshTeams} 
+        />
+      )}
     </>
   );
 };

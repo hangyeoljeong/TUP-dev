@@ -9,6 +9,7 @@ urlpatterns = [
     path("teams/", views.get_matched_teams),
     path("feedback/", views.submit_feedback),
     path('waiting-users/', views.get_waiting_users, name='waiting_users'),
+    path("apply_team_rematch/", views.apply_team_rematch, name="apply_team_rematch"),
     
     # path("teamup/submit_feedback", views.perform_feedback_action),  # ✔️ 마지막 API만 /teamup 사용
 ]

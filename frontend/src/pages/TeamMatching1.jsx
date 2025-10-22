@@ -8,7 +8,7 @@ import './TeamMatching1.css';
 import {
   applyTeamup,
   getMatchedTeams,
-  submitFeedback,
+  performFeedbackAction,
   getWaitingUsers, // ✅ 추가
 } from '../api/teamup1';
 
@@ -114,6 +114,7 @@ function TeamMatching1() {
   useEffect(() => {
   const fetchWaitingUsers = async () => {
     try {
+      
       const res = await getWaitingUsers();
       console.log('✅ 대기열 응답:', res);
 
@@ -149,22 +150,23 @@ function TeamMatching1() {
 
   // 3) 피드백 제출
   const onFeedback = async (targetUserId, vote) => {
-    // 현재 내가 속한 팀 찾기 (API 구조: { teamId, members:[userId...] })
     const myTeam = matchedUsers.find(
       (t) => Array.isArray(t.members) && t.members.includes(currentUser.id)
     );
     const teamId = myTeam?.teamId;
     if (!teamId) return;
 
-    if (feedbacks[targetUserId]) return; // 중복 제출 방지
+    // 이미 제출한 피드백이면 중복 방지
+    if (feedbacks[currentUser.id]) return;
 
     try {
-      await submitFeedback({
+      await performFeedbackAction({
+        action: 'feedback',
         teamId,
-        userId: targetUserId,
+        userId: currentUser.id,   // ✅ 내가 누른 피드백이므로 currentUser.id 사용
         agree: vote === '👍',
       });
-      setFeedbacks((prev) => ({ ...prev, [targetUserId]: vote }));
+      setFeedbacks((prev) => ({ ...prev, [currentUser.id]: vote }));
     } catch (err) {
       console.error('피드백 제출 실패:', err);
     }

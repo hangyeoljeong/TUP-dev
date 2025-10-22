@@ -27,8 +27,7 @@ class WaitingUser(models.Model):
     has_reward = models.BooleanField(default=False)  # 🎖️ 리워드 우선 매칭
 
     def __str__(self):
-        return self.user_id
-
+        return str(self.user_id) 
 
 class Team(models.Model):
     name = models.CharField(max_length=100, blank=True, null=True)
@@ -54,5 +53,17 @@ class Feedback(models.Model):
 
     def __str__(self):
         return f"{self.user_id} ({'👍' if self.agree else '👎'})"
+    
+class TeamAvoid(models.Model):
+    """
+    서로 다시 만나면 안 되는 사용자 쌍 저장
+    (비동의자 - 동의자 관계)
+    """
+    user_a = models.IntegerField()  # 한 명
+    user_b = models.IntegerField()  # 다른 한 명
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user_a', 'user_b')
 
 

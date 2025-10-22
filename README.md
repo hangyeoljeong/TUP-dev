@@ -2,8 +2,9 @@
 대기열 및 팀 초기화
 ---
 backend bash 입장 후 cd backend -> python manage.py shell
+---
 
-'''bash
+''' bash
 from TeamMatching1.models import WaitingUser, Team
 
 WaitingUser.objects.all().delete()

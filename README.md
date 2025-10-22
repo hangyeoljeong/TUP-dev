@@ -2,7 +2,6 @@
 유저 정보 및 대기열, 팀 초기화
 ---
 backend bash 입장 후 cd backend -> python manage.py shell
----
 
 ```bash
 from TeamMatching1.models import WaitingUser, Team

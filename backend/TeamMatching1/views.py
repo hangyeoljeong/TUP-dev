@@ -489,3 +489,178 @@ def apply_team_rematch(request):
         "new_members": new_members,
         "waiting_users_count": WaitingUser.objects.count(),
     }, status=200)
+
+@csrf_exempt
+@api_view(['POST'])
+def move_disagreed_users_to_waiting(request):
+    """
+    피드백 결과 기반 팀 재조정 로직
+    --------------------------------------------------
+    1️⃣ 요청자가 '동의자'이면 → 팀 해체 + 전원 대기열 복귀
+    2️⃣ 일부 '비동의자'만 있으면 → 비동의자 대기열 이동 + 대기열에서 새 인원으로 보충
+    3️⃣ 전원 비동의이면 → 팀 해체 + 전원 대기열 복귀
+    --------------------------------------------------
+    """
+    data = request.data
+    team_id = data.get("team_id") or data.get("teamId")
+    requester_id = data.get("user_id") or data.get("userId")
+
+    if not team_id or not requester_id:
+        return Response({"message": "team_id, user_id가 필요합니다."}, status=400)
+
+    team_id = int(team_id)
+    requester_id = int(requester_id)
+
+    feedbacks = Feedback.objects.filter(team_id=team_id)
+    team_members = list(TeamMember.objects.filter(team_id=team_id).values_list("user_id", flat=True))
+
+    if not team_members:
+        return Response({"message": "팀 멤버가 존재하지 않습니다."}, status=404)
+
+    my_feedback = feedbacks.filter(user_id=requester_id).first()
+    if not my_feedback:
+        return Response({"message": "요청자의 피드백 정보를 찾을 수 없습니다."}, status=404)
+
+    disagreed_user_ids = [f.user_id for f in feedbacks if not f.agree]
+    agreed_user_ids = [f.user_id for f in feedbacks if f.agree]
+
+    def _rehydrate(uid):
+        """대기열 복귀 시 WaitingUser 필드 채움"""
+        try:
+            u = User.objects.get(id=uid)
+            return {
+                "skills": u.skills or [],
+                "main_role": u.main_role or "unknown",
+                "sub_role": u.sub_role,
+                "keywords": u.keywords or [],
+                "has_reward": bool(getattr(u, "has_reward", False)),
+            }
+        except User.DoesNotExist:
+            return {
+                "skills": [],
+                "main_role": "unknown",
+                "sub_role": None,
+                "keywords": [],
+                "has_reward": False,
+            }
+
+    with transaction.atomic():
+        # ✅ Case 1: 요청자가 동의자 → 팀 해체 + 전원 대기열 복귀
+        if my_feedback.agree:
+            print(f"⚠️ [TEAM BREAK] 동의자 {requester_id} 요청으로 팀 {team_id} 해체")
+            for uid in team_members:
+                WaitingUser.objects.update_or_create(user_id=uid, defaults=_rehydrate(uid))
+            TeamMember.objects.filter(team_id=team_id).delete()
+            Team.objects.filter(id=team_id).delete()
+            Feedback.objects.filter(team_id=team_id).delete()
+            return Response({
+                "message": f"동의자 {requester_id} 요청으로 팀 해체 및 전원 대기열 복귀 완료",
+                "team_id": team_id,
+                "requeued_users": team_members,
+                "auto_teamup": False,
+            }, status=200)
+
+        # ✅ Case 2: 전원 비동의 → 팀 해체 + 전원 대기열 복귀
+        if len(disagreed_user_ids) == len(team_members):
+            print(f"❌ [TEAM BREAK] 전원 비동의 → 팀 {team_id} 해체")
+            for uid in team_members:
+                WaitingUser.objects.update_or_create(user_id=uid, defaults=_rehydrate(uid))
+            TeamMember.objects.filter(team_id=team_id).delete()
+            Team.objects.filter(id=team_id).delete()
+            Feedback.objects.filter(team_id=team_id).delete()
+            return Response({
+                "message": "전원 비동의 → 팀 해체 및 전원 대기열 복귀 완료",
+                "team_id": team_id,
+                "requeued_users": team_members,
+                "auto_teamup": False,
+            }, status=200)
+
+        # ✅ Case 3: 일부 비동의 → 비동의자만 대기열로 이동 + 대기열 인원으로 보충
+        print(f"⚙️ [PARTIAL REMATCH] 팀 {team_id}: 일부 비동의자 {disagreed_user_ids} 이동 처리 중...")
+
+        # 비동의자 → 대기열 복귀
+        for uid in disagreed_user_ids:
+            WaitingUser.objects.update_or_create(user_id=uid, defaults=_rehydrate(uid))
+
+        # 팀에서 비동의자 제거
+        TeamMember.objects.filter(team_id=team_id, user_id__in=disagreed_user_ids).delete()
+
+        # 보충 인원 계산
+        remaining_count = TeamMember.objects.filter(team_id=team_id).count()
+        need = max(0, TEAM_SIZE - remaining_count)
+
+        if need > 0:
+            # 대기열에서 보충 인원 선택
+            candidates = list(
+                WaitingUser.objects.exclude(user_id__in=agreed_user_ids + disagreed_user_ids)[:need]
+            )
+            for candidate in candidates:
+                TeamMember.objects.create(team_id=team_id, user_id=candidate.user_id)
+                candidate.delete()  # 대기열에서 제거
+            print(f"🧩 팀 {team_id} → {need}명 보충 완료")
+
+        new_members = list(
+            TeamMember.objects.filter(team_id=team_id).values_list("user_id", flat=True)
+        )
+
+        return Response({
+            "message": f"비동의자 {len(disagreed_user_ids)}명 대기열 이동 + {need}명 보충 완료",
+            "team_id": team_id,
+            "new_members": new_members,
+            "requeued_users": disagreed_user_ids,
+            "auto_teamup": True
+        }, status=200)
+    
+@csrf_exempt
+@api_view(['POST'])
+def reset_demo_data(request):
+    print("🚀 reset_demo_data 호출됨")
+
+    try:
+        with transaction.atomic():
+            # ✅ 1️⃣ 기존 데이터 싹 비우기
+            print("🧹 Team, TeamMember, Feedback, WaitingUser 데이터 삭제 중...")
+            Team.objects.all().delete()
+            TeamMember.objects.all().delete()
+            Feedback.objects.all().delete()
+            WaitingUser.objects.all().delete()
+
+            print("✅ 모든 데이터 삭제 완료")
+
+            # ✅ 2️⃣ User 테이블은 유지하되, 데모용 대기열 새로 채움
+            existing_users = list(User.objects.all())
+            if not existing_users:
+                print("⚠️ User 테이블이 비어있음 → 가짜 유저 생성")
+                for i in range(1, 51):
+                    User.objects.create(
+                        id=i,
+                        name=f"DemoUser{i}",
+                        main_role=random.choice(["개발", "기획", "디자인"]),
+                        sub_role=random.choice(["보조", "PM", "QA"]),
+                        skills=random.sample(["Python", "React", "Figma", "SQL", "Node"], 2),
+                        keywords=random.sample(["AI", "데이터", "웹", "UX", "핀테크"], 2),
+                        rating=round(random.uniform(3.0, 5.0), 1),
+                        participation=random.randint(1, 10),
+                    )
+                existing_users = list(User.objects.all())
+
+            # ✅ 3️⃣ 대기열 다시 채우기 (50명 제한)
+            sample_users = random.sample(existing_users, min(50, len(existing_users)))
+            for u in sample_users:
+                WaitingUser.objects.create(
+                    user_id=u.id,
+                    skills=u.skills or [],
+                    main_role=u.main_role or "개발",
+                    sub_role=u.sub_role or "디자인",
+                    keywords=u.keywords or [],
+                    has_reward=False,
+                )
+
+        print("✅ Demo 데이터 및 대기열 완전 초기화 완료")
+        return Response({"message": "Demo 데이터 및 대기열 완전 초기화 완료!"}, status=200)
+
+    except Exception as e:
+        print("❌ reset_demo_data 오류:", e)
+        import traceback
+        traceback.print_exc()
+        return Response({"error": str(e)}, status=500)

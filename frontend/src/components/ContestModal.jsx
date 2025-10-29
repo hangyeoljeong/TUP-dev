@@ -178,7 +178,6 @@ const ContestModal = ({
     const teamId = rawMyTeam?.teamId || rawMyTeam?.team_id;
 
     if (!teamId) {
-      toast.error('teamId를 찾을 수 없습니다.');
       return;
     }
 
@@ -193,10 +192,8 @@ const ContestModal = ({
       console.log('✅ 피드백 전송 성공:', res);
 
       setFeedbacks((prev) => ({ ...prev, [memberId]: symbol }));
-      toast.success(`피드백(${symbol})이 저장되었습니다!`);
     } catch (err) {
       console.error('❌ 피드백 실패:', err);
-      toast.error('피드백 저장 실패!');
     }
   };
 
@@ -215,7 +212,6 @@ const ContestModal = ({
     const teamId = rawMyTeam?.teamId || rawMyTeam?.team_id;
 
     if (!teamId) {
-      toast.error('teamId를 찾을 수 없습니다.');
       return;
     }
 
@@ -237,7 +233,6 @@ const ContestModal = ({
         return;
       }
 
-      toast.success('재매칭 완료! 곧 페이지가 새로고침됩니다.');
 
       // ✅ 1초 뒤 페이지 새로고침
       setTimeout(() => {
@@ -257,7 +252,6 @@ const ContestModal = ({
     }
 
     if (userSkills.length === 0 || !mainRole.trim() || !subRole.trim()) {
-      toast.warning('❗ 키워드, 희망 역할군, 보조 역할군을 모두 입력해주세요!');
       return;
     }
 

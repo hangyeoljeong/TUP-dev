@@ -263,6 +263,44 @@ function TeamMatching1() {
           loading={loading}
         />
       )}
+
+      {/* 🧹 DEMO RESET BUTTON */}
+      <button
+        onClick={async () => {
+          if (!window.confirm("⚠️ 모든 팀 및 대기열 데이터를 초기화하시겠습니까?")) return;
+          try {
+            // 1️⃣ 백엔드 초기화 요청
+            await fetch("/api/team-matching1/reset-demo-data/", { method: "POST" });
+            // 2️⃣ 캐시 삭제
+            localStorage.clear();
+            // 3️⃣ 새로고침
+            alert("✅ Demo 데이터 및 캐시 초기화 완료!");
+            window.location.reload();
+          } catch (err) {
+            console.error("❌ 초기화 실패:", err);
+            alert("초기화 중 오류가 발생했습니다.");
+          }
+        }}
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "20px",
+          width: "65px",
+          height: "65px",
+          borderRadius: "50%",
+          border: "none",
+          backgroundColor: "#FF6B35",
+          color: "white",
+          fontSize: "1.6rem",
+          fontWeight: "bold",
+          cursor: "pointer",
+          boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+          zIndex: 9999,
+        }}
+        title="Demo Reset"
+      >
+        🧹
+      </button>
     </div>
   );
 }
